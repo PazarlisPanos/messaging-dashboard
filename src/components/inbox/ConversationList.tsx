@@ -72,7 +72,16 @@ export default function ConversationList({ conversations, selectedId, onSelect, 
       {conversations.map((conv) => {
         const isSelected = conv.contact_id === selectedId
         const needsHuman = conv.needs_human
+        const botPaused = conv.bot_paused
         const hasUnread = conv.unread_count > 0
+
+        const borderLeftColor = needsHuman
+          ? '#fb923c'
+          : botPaused
+          ? '#a78bfa'
+          : isSelected
+          ? 'var(--accent, #6c6fff)'
+          : 'transparent'
 
         return (
           <button
@@ -80,15 +89,13 @@ export default function ConversationList({ conversations, selectedId, onSelect, 
             onClick={() => onSelect(conv.contact_id)}
             className={clsx(
               'w-full flex items-start gap-3 px-4 py-3 text-left transition-colors duration-100',
-              'border-b',
-              isSelected
-                ? 'border-l-2 border-l-accent'
-                : needsHuman
-                ? 'border-l-2 border-l-orange-500'
-                : 'border-l-transparent',
+              'border-b border-l-2',
               isSelected ? 'bg-accent/8' : 'hover:bg-white/4',
             )}
-            style={{ borderBottomColor: 'rgba(255,255,255,0.04)' }}
+            style={{
+              borderBottomColor: 'rgba(255,255,255,0.04)',
+              borderLeftColor,
+            }}
           >
             <div className={clsx(
               'w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0',
@@ -103,8 +110,13 @@ export default function ConversationList({ conversations, selectedId, onSelect, 
                   <p className="text-sm font-medium text-white truncate">
                     {conv.display_name ?? conv.contact_id}
                   </p>
+                  {/* Orange dot για needs_human */}
                   {needsHuman && (
                     <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#fb923c', flexShrink: 0, display: 'inline-block' }} />
+                  )}
+                  {/* Μωβ dot για bot paused */}
+                  {!needsHuman && botPaused && (
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#a78bfa', flexShrink: 0, display: 'inline-block' }} />
                   )}
                 </div>
                 <span className="text-[10px] whitespace-nowrap flex-shrink-0" style={{ color: '#555566' }}>
@@ -116,16 +128,26 @@ export default function ConversationList({ conversations, selectedId, onSelect, 
                 <p className="text-xs truncate" style={{ color: '#6b7280' }}>
                   {conv.last_message ?? 'No messages'}
                 </p>
-                {/* Only show badge if there are unread messages since last reply */}
-                {hasUnread && (
-                  <span style={{
-                    flexShrink: 0, minWidth: 18, height: 18, borderRadius: 9, background: '#6c6fff',
-                    color: '#fff', fontSize: 9, fontWeight: 700,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px'
-                  }}>
-                    {conv.unread_count > 99 ? '99+' : conv.unread_count}
-                  </span>
-                )}
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {botPaused && (
+                    <span style={{
+                      fontSize: 8, fontWeight: 700, color: '#a78bfa',
+                      background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)',
+                      padding: '1px 5px', borderRadius: 4, whiteSpace: 'nowrap',
+                    }}>
+                      Bot OFF
+                    </span>
+                  )}
+                  {hasUnread && (
+                    <span style={{
+                      minWidth: 18, height: 18, borderRadius: 9, background: '#6c6fff',
+                      color: '#fff', fontSize: 9, fontWeight: 700,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px'
+                    }}>
+                      {conv.unread_count > 99 ? '99+' : conv.unread_count}
+                    </span>
+                  )}
+                </div>
               </div>
 
               {conv.last_intent && (
