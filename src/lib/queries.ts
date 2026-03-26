@@ -271,20 +271,20 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
         s.conversation_key
       FROM (
         SELECT
-          CASE WHEN direction='in' THEN sender ELSE recipient END AS contact_id,
-          MAX(created_at) AS last_message_at,
+          CASE WHEN vm.direction='in' THEN vm.sender ELSE vm.recipient END AS contact_id,
+          MAX(vm.created_at) AS last_message_at,
           -- unread = incoming messages since last outgoing reply
-          COUNT(*) FILTER (WHERE direction = 'in'
-            AND created_at > COALESCE(
+          COUNT(*) FILTER (WHERE vm.direction = 'in'
+            AND vm.created_at > COALESCE(
               (SELECT MAX(m2.created_at) FROM vb_messages m2
                WHERE m2.direction = 'out'
-               AND (CASE WHEN direction='in' THEN sender ELSE recipient END) =
+               AND (CASE WHEN vm.direction='in' THEN vm.sender ELSE vm.recipient END) =
                    (CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END)),
               '1970-01-01'
             )
           ) AS unread_count
-        FROM vb_messages
-        GROUP BY CASE WHEN direction='in' THEN sender ELSE recipient END
+        FROM vb_messages vm
+        GROUP BY CASE WHEN vm.direction='in' THEN vm.sender ELSE vm.recipient END
       ) conv
       LEFT JOIN LATERAL (
         SELECT text AS last_message FROM vb_messages m2
@@ -308,7 +308,10 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
       bot_paused: r.bot_paused ?? false,
       conversation_key: r.conversation_key ?? null,
     }))
-  } catch { return [] }
+  } catch (e) {
+    console.error('[getVbConversations]', e)
+    return []
+  }
 }
 
 export async function getVbMessages(dbUrl: string, contactId: string): Promise<WaMessage[]> {
