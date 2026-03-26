@@ -12,7 +12,7 @@ export default async function ClientViberPage({ params }: { params: { client: st
 
   return (
     <>
-      <div className="hidden md:block" style={{ flex: 1, minHeight: 0, height: '100%' }}>
+      <div className="hidden md:block" style={{ height: 'calc(100vh - 3.5rem - 3rem)', overflow: 'hidden' }}>
         <InboxView
           platform="viber"
           initialConversations={conversations}
