@@ -12,8 +12,7 @@ export default async function ClientWhatsAppPage({ params }: { params: { client:
 
   return (
     <>
-      {/* Desktop: full height */}
-      <div className="hidden md:block" style={{ height: 'calc(100vh - 3.5rem)' }}>
+      <div className="hidden md:block" style={{ flex: 1, minHeight: 0, height: '100%' }}>
         <InboxView
           platform="whatsapp"
           initialConversations={conversations}
@@ -22,7 +21,6 @@ export default async function ClientWhatsAppPage({ params }: { params: { client:
           botToggleWebhook={client.bot_toggle_webhook}
         />
       </div>
-      {/* Mobile: natural height */}
       <div className="block md:hidden" style={{ height: 'calc(100vh - 56px - 64px)' }}>
         <InboxView
           platform="whatsapp"
