@@ -36,14 +36,9 @@ export default function Sidebar({ clientSlug, clientName, role }: Props) {
   return (
     <aside style={{ width: 220, flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%', borderRight: '1px solid rgba(255,255,255,0.06)', background: '#111118' }}>
       <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 12, background: 'rgba(108,111,255,0.15)', border: '1px solid rgba(108,111,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <img src="/logo.png" alt="MsgHub" style={{ width: 140, height: 40, objectFit: 'contain', objectPosition: 'left' }} />
-          </div>
-          <div style={{ minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 600, color: '#fff', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clientName}</p>
-            <p style={{ fontSize: 11, color: '#6b7280', marginTop: 2 }}>MsgHub</p>
-          </div>
+        <div>
+          <img src="/logo.png" alt="MsgHub" style={{ width: 160, height: 44, objectFit: 'contain', objectPosition: 'left', display: 'block' }} />
+          <p style={{ fontSize: 11, color: '#6b7280', marginTop: 4 }}>{clientName}</p>
         </div>
       </div>
 
