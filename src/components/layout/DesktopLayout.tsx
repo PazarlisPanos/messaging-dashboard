@@ -14,7 +14,9 @@ export default function DesktopLayout({ children, clientSlug, clientName, role }
       <Sidebar clientSlug={clientSlug} clientName={clientName} role={role} />
       <div className="flex flex-col flex-1 overflow-hidden">
         <Topbar clientName={clientName} />
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <main className="flex-1 overflow-hidden p-6" style={{ display: 'flex', flexDirection: 'column' }}>
+          {children}
+        </main>
       </div>
     </>
   )
