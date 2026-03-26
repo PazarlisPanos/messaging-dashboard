@@ -6,7 +6,7 @@ import MessageThread from './MessageThread'
 import ReplyBox from './ReplyBox'
 import BotToggleButton from './BotToggleButton'
 import type { Conversation, WaMessage, Platform } from '@/types'
-import { Search, AlertTriangle, RefreshCw, ArrowLeft } from 'lucide-react'
+import { Search, AlertTriangle, RefreshCw, ArrowLeft, CheckCircle } from 'lucide-react'
 
 interface Props {
   platform: Platform
@@ -15,25 +15,27 @@ interface Props {
   waWebhook?: string | null
   vbWebhook?: string | null
   botToggleWebhook?: string | null
+  resolveAttentionWebhook?: string | null
 }
 
 export default function InboxView({
   platform, initialConversations, clientSlug,
-  waWebhook, vbWebhook, botToggleWebhook,
+  waWebhook, vbWebhook, botToggleWebhook, resolveAttentionWebhook,
 }: Props) {
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [messages, setMessages] = useState<WaMessage[]>([])
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [loadingConvs, setLoadingConvs] = useState(false)
+  const [resolvingAttention, setResolvingAttention] = useState(false)
   const [search, setSearch] = useState('')
   const [lastRefresh, setLastRefresh] = useState(new Date())
-  // Mobile: show thread when conversation selected
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list')
 
   const selectedConv = conversations.find(c => c.contact_id === selectedId)
   const hasReply = platform === 'whatsapp' ? !!waWebhook : !!vbWebhook
   const hasBotWebhook = !!botToggleWebhook
+  const hasResolveWebhook = !!resolveAttentionWebhook
 
   const refreshConversations = useCallback(async (silent = false) => {
     if (!silent) setLoadingConvs(true)
@@ -63,15 +65,50 @@ export default function InboxView({
     finally { setLoadingMessages(false) }
   }, [clientSlug, platform])
 
+  function markAsRead(contactId: string) {
+    setConversations(prev =>
+      prev.map(c => c.contact_id === contactId ? { ...c, unread_count: 0 } : c)
+    )
+  }
+
   function handleSelect(id: string) {
     setSelectedId(id)
     loadMessages(id)
-    setMobileView('thread') // switch to thread on mobile
+    markAsRead(id)
+    setMobileView('thread')
   }
 
   function handleBack() {
     setMobileView('list')
     setSelectedId(null)
+  }
+
+  async function handleResolveAttention() {
+    if (!selectedConv || resolvingAttention || !resolveAttentionWebhook) return
+    setResolvingAttention(true)
+    try {
+      const res = await fetch('/api/resolve-attention', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_slug: clientSlug,
+          contact_id: selectedConv.contact_id,
+          conversation_key: selectedConv.conversation_key ?? null,
+          platform,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        alert(data.error ?? 'Failed to resolve')
+        return
+      }
+      // Optimistic update
+      setConversations(prev =>
+        prev.map(c => c.contact_id === selectedConv.contact_id ? { ...c, needs_human: false } : c)
+      )
+      setTimeout(() => refreshConversations(true), 1000)
+    } catch { alert('Network error') }
+    finally { setResolvingAttention(false) }
   }
 
   const filtered = search.trim()
@@ -83,8 +120,6 @@ export default function InboxView({
 
   const needsHumanCount = conversations.filter(c => c.needs_human).length
   const platformLabel = platform === 'whatsapp' ? 'WhatsApp' : 'Viber'
-
-  // ── Shared panels ──────────────────────────────────────────────────────────
 
   const listPanel = (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -127,9 +162,7 @@ export default function InboxView({
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {selectedConv ? (
         <>
-          {/* Thread header */}
           <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
-            {/* Back button (mobile only) */}
             <button onClick={handleBack} className="block md:hidden"
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#a8aaff', padding: '4px 2px', display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <ArrowLeft size={20} />
@@ -143,10 +176,36 @@ export default function InboxView({
               </p>
               <p style={{ fontSize: 10, color: '#6b7280' }}>{selectedConv.contact_id}</p>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {/* Attention badge + resolve button */}
               {selectedConv.needs_human && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 600, color: '#fb923c', background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', padding: '3px 6px', borderRadius: 6 }}>
-                  <AlertTriangle size={9} /> Attention
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 600, color: '#fb923c', background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)', padding: '3px 6px', borderRadius: 6 }}>
+                    <AlertTriangle size={9} /> Attention
+                  </span>
+                  {hasResolveWebhook && (
+                    <button
+                      onClick={handleResolveAttention}
+                      disabled={resolvingAttention}
+                      title="Mark as resolved"
+                      style={{
+                        display: 'flex', alignItems: 'center', gap: 3,
+                        fontSize: 9, fontWeight: 600, color: '#4ade80',
+                        background: 'rgba(74,222,128,0.08)', border: '1px solid rgba(74,222,128,0.2)',
+                        padding: '3px 6px', borderRadius: 6,
+                        cursor: resolvingAttention ? 'not-allowed' : 'pointer',
+                        opacity: resolvingAttention ? 0.5 : 1,
+                      }}>
+                      <CheckCircle size={9} />
+                      {resolvingAttention ? '…' : 'Resolve'}
+                    </button>
+                  )}
+                </div>
+              )}
+              {/* Bot OFF badge */}
+              {selectedConv.bot_paused && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 600, color: '#a78bfa', background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)', padding: '3px 6px', borderRadius: 6 }}>
+                  Bot OFF
                 </span>
               )}
               {selectedConv.lang && (
@@ -155,15 +214,16 @@ export default function InboxView({
                 </span>
               )}
               <span className={platform === 'whatsapp' ? 'tag-wa' : 'tag-vb'} style={{ fontSize: 9 }}>{platformLabel}</span>
-                <BotToggleButton
-                  contactId={selectedConv.contact_id}
-                  conversationKey={selectedConv.conversation_key}
-                  clientSlug={clientSlug}
-                  platform={platform}
-                  initialBotPaused={selectedConv.bot_paused ?? false}
-                  hasBotWebhook={hasBotWebhook}
-                  onToggled={() => refreshConversations(true)}
-                />
+              <BotToggleButton
+                key={`${selectedConv.contact_id}-${selectedConv.bot_paused}`}
+                contactId={selectedConv.contact_id}
+                conversationKey={selectedConv.conversation_key}
+                clientSlug={clientSlug}
+                platform={platform}
+                initialBotPaused={selectedConv.bot_paused ?? false}
+                hasBotWebhook={hasBotWebhook}
+                onToggled={() => refreshConversations(true)}
+              />
             </div>
           </div>
 
@@ -190,7 +250,6 @@ export default function InboxView({
 
   return (
     <>
-      {/* Desktop: side by side */}
       <div className="hidden md:flex" style={{ height: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: '#111118' }}>
         <div style={{ width: 300, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
           {listPanel}
@@ -200,7 +259,6 @@ export default function InboxView({
         </div>
       </div>
 
-      {/* Mobile: toggle between list and thread */}
       <div className="block md:hidden" style={{ height: '100%', borderRadius: 12, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.06)', background: '#111118' }}>
         {mobileView === 'list' ? listPanel : threadPanel}
       </div>
