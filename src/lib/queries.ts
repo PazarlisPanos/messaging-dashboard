@@ -266,25 +266,16 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
         last_msg.last_message,
         conv.last_message_at,
         conv.unread_count,
-        COALESCE(s.needs_human, FALSE) AS needs_human,
         COALESCE(s.bot_paused, FALSE) AS bot_paused,
+        COALESCE(s.needs_human, FALSE) AS needs_human,
         s.conversation_key
       FROM (
         SELECT
-          CASE WHEN vm.direction='in' THEN vm.sender ELSE vm.recipient END AS contact_id,
-          MAX(vm.created_at) AS last_message_at,
-          -- unread = incoming messages since last outgoing reply
-          COUNT(*) FILTER (WHERE vm.direction = 'in'
-            AND vm.created_at > COALESCE(
-              (SELECT MAX(m2.created_at) FROM vb_messages m2
-               WHERE m2.direction = 'out'
-               AND (CASE WHEN vm.direction='in' THEN vm.sender ELSE vm.recipient END) =
-                   (CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END)),
-              '1970-01-01'
-            )
-          ) AS unread_count
-        FROM vb_messages vm
-        GROUP BY CASE WHEN vm.direction='in' THEN vm.sender ELSE vm.recipient END
+          CASE WHEN direction='in' THEN sender ELSE recipient END AS contact_id,
+          MAX(created_at) AS last_message_at,
+          COUNT(*) FILTER (WHERE direction = 'in') AS unread_count
+        FROM vb_messages
+        GROUP BY CASE WHEN direction='in' THEN sender ELSE recipient END
       ) conv
       LEFT JOIN LATERAL (
         SELECT text AS last_message FROM vb_messages m2
@@ -292,7 +283,7 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
         ORDER BY m2.created_at DESC LIMIT 1
       ) last_msg ON true
       LEFT JOIN vb_sessions s ON s.sender = 'viber_dm:' || conv.contact_id
-      ORDER BY COALESCE(s.needs_human, FALSE) DESC, conv.last_message_at DESC
+      ORDER BY s.needs_human DESC NULLS LAST, conv.last_message_at DESC
       LIMIT 100
     `)
     return rows.map(r => ({
