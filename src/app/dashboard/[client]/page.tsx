@@ -1,7 +1,7 @@
 import { getClient } from '@/lib/clients'
 import {
   getDashboardStats, getDailyMessages, getPeakHours,
-  getLanguageStats, getDailyAiCost,
+  getLanguageStats, getDailyAiCost, getBotPausedCount,
 } from '@/lib/queries'
 import { notFound } from 'next/navigation'
 import StatCard from '@/components/dashboard/StatCard'
@@ -10,7 +10,7 @@ import { PlatformBreakdown, PeakHoursChart } from '@/components/dashboard/Platfo
 import { AiCostChart, AiVsManualChart, LanguageChart } from '@/components/dashboard/AiStatsCharts'
 import {
   MessageCircle, ArrowDownLeft, ArrowUpRight,
-  Users, MessageSquare, Smartphone, CalendarDays, AlertTriangle,
+  Users, MessageSquare, Smartphone, CalendarDays, AlertTriangle, BotOff,
 } from 'lucide-react'
 
 export const revalidate = 60
@@ -29,12 +29,13 @@ export default async function ClientDashboardPage({ params }: { params: { client
   const db = client.database_url
 
   // Fetch all data with individual error handling
-  const [stats, daily, peaks, langs, aiCost] = await Promise.all([
+  const [stats, daily, peaks, langs, aiCost, botPausedCount] = await Promise.all([
     getDashboardStats(db).catch(() => EMPTY_STATS),
     getDailyMessages(db).catch(() => []),
     getPeakHours(db).catch(() => []),
     getLanguageStats(db).catch(() => []),
     getDailyAiCost(db).catch(() => []),
+    getBotPausedCount(db).catch(() => 0),
   ])
 
   return (
@@ -44,15 +45,26 @@ export default async function ClientDashboardPage({ params }: { params: { client
           <h2 className="text-lg font-bold text-white">Overview</h2>
           <p className="text-sm mt-0.5" style={{ color: '#6b7280' }}>Real-time messaging analytics</p>
         </div>
-        {stats.needs_human_count > 0 && (
-          <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
-            style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)' }}>
-            <AlertTriangle size={14} style={{ color: '#fb923c' }} />
-            <span className="text-xs font-semibold" style={{ color: '#fb923c' }}>
-              {stats.needs_human_count} conversation{stats.needs_human_count !== 1 ? 's' : ''} need attention
-            </span>
-          </div>
-        )}
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {stats.needs_human_count > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
+              style={{ background: 'rgba(249,115,22,0.1)', border: '1px solid rgba(249,115,22,0.2)' }}>
+              <AlertTriangle size={14} style={{ color: '#fb923c' }} />
+              <span className="text-xs font-semibold" style={{ color: '#fb923c' }}>
+                {stats.needs_human_count} conversation{stats.needs_human_count !== 1 ? 's' : ''} need attention
+              </span>
+            </div>
+          )}
+          {botPausedCount > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg"
+              style={{ background: 'rgba(167,139,250,0.1)', border: '1px solid rgba(167,139,250,0.2)' }}>
+              <BotOff size={14} style={{ color: '#a78bfa' }} />
+              <span className="text-xs font-semibold" style={{ color: '#a78bfa' }}>
+                {botPausedCount} bot{botPausedCount !== 1 ? 's' : ''} paused
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -71,6 +83,12 @@ export default async function ClientDashboardPage({ params }: { params: { client
           value={stats.needs_human_count}
           icon={AlertTriangle}
           iconColor={stats.needs_human_count > 0 ? 'text-orange-400' : 'text-muted'}
+        />
+        <StatCard
+          label="Bot paused"
+          value={botPausedCount}
+          icon={BotOff}
+          iconColor={botPausedCount > 0 ? 'text-purple-400' : 'text-muted'}
         />
       </div>
 

@@ -10,6 +10,7 @@ export interface Client {
   wa_webhook: string | null
   vb_webhook: string | null
   bot_toggle_webhook: string | null
+  resolve_attention_webhook: string | null
   active: boolean
   created_at: Date
 }

@@ -19,6 +19,7 @@ export default async function ClientWhatsAppPage({ params }: { params: { client:
           clientSlug={params.client}
           waWebhook={client.wa_webhook}
           botToggleWebhook={client.bot_toggle_webhook}
+          resolveAttentionWebhook={client.resolve_attention_webhook}
         />
       </div>
       <div className="block md:hidden" style={{ height: 'calc(100vh - 56px - 64px)' }}>
@@ -28,6 +29,7 @@ export default async function ClientWhatsAppPage({ params }: { params: { client:
           clientSlug={params.client}
           waWebhook={client.wa_webhook}
           botToggleWebhook={client.bot_toggle_webhook}
+          resolveAttentionWebhook={client.resolve_attention_webhook}
         />
       </div>
     </>

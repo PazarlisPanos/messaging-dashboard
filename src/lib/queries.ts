@@ -38,20 +38,27 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
       `SELECT COUNT(*) AS count FROM wa_messages WHERE created_at::date = CURRENT_DATE`)
 
     let vbTotal = 0
+    let vbUniqueContacts = 0
     try {
-      const [vb] = await clientQuery<{ total: string }>(dbUrl, `SELECT COUNT(*) AS total FROM vb_messages`)
+      const [vb] = await clientQuery<{ total: string; unique_contacts: string }>(dbUrl, `
+        SELECT COUNT(*) AS total,
+               COUNT(DISTINCT CASE WHEN direction='in' THEN sender ELSE recipient END) AS unique_contacts
+        FROM vb_messages
+      `)
       vbTotal = parseInt(vb?.total ?? '0')
+      vbUniqueContacts = parseInt(vb?.unique_contacts ?? '0')
     } catch { }
 
     const total = parseInt(wa.total)
     const aiOut = parseInt(wa.ai_out)
     const manualOut = parseInt(wa.manual_out)
+    const waUniqueContacts = parseInt(wa.unique_contacts)
     return {
       total_messages: total + vbTotal,
       incoming_messages: parseInt(wa.incoming),
       outgoing_messages: parseInt(wa.outgoing),
-      unique_contacts: parseInt(wa.unique_contacts),
-      total_conversations: parseInt(wa.unique_contacts),
+      unique_contacts: waUniqueContacts + vbUniqueContacts,
+      total_conversations: waUniqueContacts + vbUniqueContacts,
       wa_messages: total,
       vb_messages: vbTotal,
       messages_today: parseInt(today.count),
@@ -68,6 +75,20 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
       ai_used_count: 0, manual_count: 0, avg_confidence: null,
     }
   }
+}
+
+export async function getBotPausedCount(dbUrl: string): Promise<number> {
+  try {
+    const [wa] = await clientQuery<{ count: string }>(dbUrl,
+      `SELECT COUNT(*) AS count FROM wa_sessions WHERE bot_paused = TRUE`)
+    let vbCount = 0
+    try {
+      const [vb] = await clientQuery<{ count: string }>(dbUrl,
+        `SELECT COUNT(*) AS count FROM vb_sessions WHERE bot_paused = TRUE`)
+      vbCount = parseInt(vb?.count ?? '0')
+    } catch { }
+    return parseInt(wa?.count ?? '0') + vbCount
+  } catch { return 0 }
 }
 
 export async function getDailyMessages(dbUrl: string): Promise<DailyMessageCount[]> {
@@ -237,17 +258,31 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
     const rows = await clientQuery<{
       contact_id: string; last_message: string | null
       last_message_at: unknown; unread_count: string
+      needs_human: boolean | null; bot_paused: boolean | null
+      conversation_key: string | null
     }>(dbUrl, `
       SELECT
         conv.contact_id,
         last_msg.last_message,
         conv.last_message_at,
-        conv.unread_count
+        conv.unread_count,
+        COALESCE(s.needs_human, FALSE) AS needs_human,
+        COALESCE(s.bot_paused, FALSE) AS bot_paused,
+        s.conversation_key
       FROM (
         SELECT
           CASE WHEN direction='in' THEN sender ELSE recipient END AS contact_id,
           MAX(created_at) AS last_message_at,
-          COUNT(*) FILTER (WHERE direction = 'in') AS unread_count
+          -- unread = incoming messages since last outgoing reply
+          COUNT(*) FILTER (WHERE direction = 'in'
+            AND created_at > COALESCE(
+              (SELECT MAX(m2.created_at) FROM vb_messages m2
+               WHERE m2.direction = 'out'
+               AND (CASE WHEN direction='in' THEN sender ELSE recipient END) =
+                   (CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END)),
+              '1970-01-01'
+            )
+          ) AS unread_count
         FROM vb_messages
         GROUP BY CASE WHEN direction='in' THEN sender ELSE recipient END
       ) conv
@@ -256,7 +291,9 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
         WHERE CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END = conv.contact_id
         ORDER BY m2.created_at DESC LIMIT 1
       ) last_msg ON true
-      ORDER BY conv.last_message_at DESC LIMIT 100
+      LEFT JOIN vb_sessions s ON s.sender = 'viber_dm:' || conv.contact_id
+      ORDER BY COALESCE(s.needs_human, FALSE) DESC, conv.last_message_at DESC
+      LIMIT 100
     `)
     return rows.map(r => ({
       contact_id: String(r.contact_id),
@@ -267,6 +304,9 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
       unread_count: parseInt(String(r.unread_count)) || 0,
       platform: 'viber',
       status: 'open',
+      needs_human: r.needs_human ?? false,
+      bot_paused: r.bot_paused ?? false,
+      conversation_key: r.conversation_key ?? null,
     }))
   } catch { return [] }
 }

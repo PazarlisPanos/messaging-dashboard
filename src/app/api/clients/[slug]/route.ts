@@ -18,8 +18,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { slug: stri
 
   // super_admin can update everything, operators cannot change database_url
   const allowed = role === 'super_admin'
-    ? ['name', 'database_url', 'wa_webhook', 'vb_webhook', 'bot_toggle_webhook']
-    : ['name', 'wa_webhook', 'vb_webhook', 'bot_toggle_webhook']
+    ? ['name', 'database_url', 'wa_webhook', 'vb_webhook', 'bot_toggle_webhook', 'resolve_attention_webhook']
+    : ['name', 'wa_webhook', 'vb_webhook', 'bot_toggle_webhook', 'resolve_attention_webhook']
 
   const updates: Record<string, string | null> = {}
   for (const key of allowed) {

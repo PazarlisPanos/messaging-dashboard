@@ -15,6 +15,7 @@ export default function ClientSettingsForm({ client, isSuperAdmin }: Props) {
     wa_webhook: client.wa_webhook ?? '',
     vb_webhook: client.vb_webhook ?? '',
     bot_toggle_webhook: client.bot_toggle_webhook ?? '',
+    resolve_attention_webhook: client.resolve_attention_webhook ?? '',
   })
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -90,6 +91,7 @@ export default function ClientSettingsForm({ client, isSuperAdmin }: Props) {
             { key: 'wa_webhook', label: 'WhatsApp manual reply', hint: '/webhook/client-wa-reply' },
             { key: 'vb_webhook', label: 'Viber manual reply', hint: '/webhook/client-vb-reply' },
             { key: 'bot_toggle_webhook', label: 'Bot enable/disable toggle', hint: '/webhook/client-bot-toggle' },
+            { key: 'resolve_attention_webhook', label: 'Resolve attention (needs human)', hint: '/webhook/client-resolve-attention' },
           ].map(({ key, label, hint }) => (
             <div key={key}>
               <label style={labelStyle}>{label}</label>
@@ -110,6 +112,16 @@ WHERE sender = '{{$json.contact_id}}'
 -- Viber:
 UPDATE vb_sessions SET bot_paused = {{$json.bot_paused}}
 WHERE sender = '{{$json.contact_id}}'`}</pre>
+          </div>
+          <div style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: 8, padding: '12px 14px', marginTop: 8 }}>
+            <p style={{ fontSize: 11, fontWeight: 600, color: '#fff', marginBottom: 8 }}>n8n Resolve Attention — SQL template</p>
+            <pre style={{ fontSize: 10, color: '#6b7280', lineHeight: 1.6, overflow: 'auto' }}>{`-- Payload: { contact_id, conversation_key, platform, action, needs_human }
+-- WhatsApp:
+UPDATE wa_sessions SET needs_human = false
+WHERE sender = '{{$json.contact_id}}'
+-- Viber:
+UPDATE vb_sessions SET needs_human = false
+WHERE sender = 'viber_dm:{{$json.contact_id}}'`}</pre>
           </div>
         </div>
       )}

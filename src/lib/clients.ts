@@ -33,7 +33,7 @@ export async function createClient(data: {
 
 export async function updateClient(
   slug: string,
-  data: Partial<Pick<Client, 'name' | 'database_url' | 'wa_webhook' | 'vb_webhook' | 'bot_toggle_webhook' | 'active'>>
+  data: Partial<Pick<Client, 'name' | 'database_url' | 'wa_webhook' | 'vb_webhook' | 'bot_toggle_webhook' | 'resolve_attention_webhook' | 'active'>>
 ): Promise<Client | null> {
   const fields = Object.keys(data)
   if (!fields.length) return null
