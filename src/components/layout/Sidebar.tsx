@@ -38,7 +38,7 @@ export default function Sidebar({ clientSlug, clientName, role }: Props) {
       <div style={{ padding: '20px 16px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{ width: 32, height: 32, borderRadius: 12, background: 'rgba(108,111,255,0.15)', border: '1px solid rgba(108,111,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Zap size={14} color="#6c6fff" />
+            <img src="/logo.png" alt="MsgHub" style={{ width: 140, height: 40, objectFit: 'contain', objectPosition: 'left' }} />
           </div>
           <div style={{ minWidth: 0 }}>
             <p style={{ fontSize: 13, fontWeight: 600, color: '#fff', lineHeight: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{clientName}</p>
