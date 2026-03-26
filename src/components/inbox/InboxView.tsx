@@ -155,7 +155,6 @@ export default function InboxView({
                 </span>
               )}
               <span className={platform === 'whatsapp' ? 'tag-wa' : 'tag-vb'} style={{ fontSize: 9 }}>{platformLabel}</span>
-              {platform === 'whatsapp' && (
                 <BotToggleButton
                   contactId={selectedConv.contact_id}
                   conversationKey={selectedConv.conversation_key}
@@ -165,7 +164,6 @@ export default function InboxView({
                   hasBotWebhook={hasBotWebhook}
                   onToggled={() => refreshConversations(true)}
                 />
-              )}
             </div>
           </div>
 
