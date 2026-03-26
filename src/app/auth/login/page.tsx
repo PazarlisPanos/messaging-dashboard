@@ -38,7 +38,7 @@ export default function LoginPage() {
       <div className="relative w-full max-w-sm">
         <div className="text-center mb-10">
           <div className="flex justify-center mb-4">
-            <Image src="/logo.png" alt="MsgHub" width={200} height={60} style={{ objectFit: 'contain' }} priority />
+            <img src="/logo.png" alt="MsgHub" style={{ width: 200, height: 60, objectFit: 'contain' }} />
           </div>
           <p className="text-sm mt-2" style={{ color: '#6b7280' }}>Sign in to your workspace</p>
         </div>
