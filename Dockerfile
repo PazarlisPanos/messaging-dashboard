@@ -33,7 +33,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static     ./.next/static
 
 # public folder is optional - create empty one if it doesn't exist
-RUN mkdir -p ./public
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
