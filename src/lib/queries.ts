@@ -1,0 +1,290 @@
+import { clientQuery } from './db'
+import type {
+  DashboardStats, DailyMessageCount, PeakHour,
+  Conversation, WaMessage, LanguageStat, IntentStat, DailyAiCost,
+} from '@/types'
+
+const CONTACT_ID = `CASE WHEN direction = 'in' THEN sender ELSE recipient END`
+
+function toDateStr(val: unknown): string {
+  if (!val) return ''
+  if (typeof val === 'string') return val.substring(0, 10)
+  if (val instanceof Date) return val.toISOString().substring(0, 10)
+  return String(val).substring(0, 10)
+}
+
+export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> {
+  try {
+    const [wa] = await clientQuery<{
+      total: string; incoming: string; outgoing: string
+      unique_contacts: string; ai_out: string; manual_out: string
+      needs_human: string; avg_confidence: string
+    }>(dbUrl, `
+      SELECT
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE direction = 'in') AS incoming,
+        COUNT(*) FILTER (WHERE direction = 'out') AS outgoing,
+        COUNT(DISTINCT (${CONTACT_ID})) AS unique_contacts,
+        -- AI: outgoing messages where ai_used = true
+        COUNT(*) FILTER (WHERE direction = 'out' AND ai_used = TRUE) AS ai_out,
+        -- Manual: outgoing messages where ai_used is false or null
+        COUNT(*) FILTER (WHERE direction = 'out' AND (ai_used = FALSE OR ai_used IS NULL)) AS manual_out,
+        (SELECT COUNT(*) FROM wa_sessions WHERE needs_human = TRUE) AS needs_human,
+        -- Confidence is 0-1 scale
+        ROUND(AVG(confidence) FILTER (WHERE confidence IS NOT NULL AND confidence <= 1)::numeric, 4) AS avg_confidence
+      FROM wa_messages
+    `)
+    const [today] = await clientQuery<{ count: string }>(dbUrl,
+      `SELECT COUNT(*) AS count FROM wa_messages WHERE created_at::date = CURRENT_DATE`)
+
+    let vbTotal = 0
+    try {
+      const [vb] = await clientQuery<{ total: string }>(dbUrl, `SELECT COUNT(*) AS total FROM vb_messages`)
+      vbTotal = parseInt(vb?.total ?? '0')
+    } catch { }
+
+    const total = parseInt(wa.total)
+    const aiOut = parseInt(wa.ai_out)
+    const manualOut = parseInt(wa.manual_out)
+    return {
+      total_messages: total + vbTotal,
+      incoming_messages: parseInt(wa.incoming),
+      outgoing_messages: parseInt(wa.outgoing),
+      unique_contacts: parseInt(wa.unique_contacts),
+      total_conversations: parseInt(wa.unique_contacts),
+      wa_messages: total,
+      vb_messages: vbTotal,
+      messages_today: parseInt(today.count),
+      needs_human_count: parseInt(wa.needs_human),
+      ai_used_count: aiOut,
+      manual_count: manualOut,
+      avg_confidence: wa.avg_confidence ? parseFloat(wa.avg_confidence) : null,
+    }
+  } catch {
+    return {
+      total_messages: 0, incoming_messages: 0, outgoing_messages: 0,
+      unique_contacts: 0, total_conversations: 0, wa_messages: 0,
+      vb_messages: 0, messages_today: 0, needs_human_count: 0,
+      ai_used_count: 0, manual_count: 0, avg_confidence: null,
+    }
+  }
+}
+
+export async function getDailyMessages(dbUrl: string): Promise<DailyMessageCount[]> {
+  try {
+    const rows = await clientQuery<{ date: unknown; incoming: string; outgoing: string }>(dbUrl, `
+      SELECT
+        to_char(created_at::date, 'YYYY-MM-DD') AS date,
+        COUNT(*) FILTER (WHERE direction = 'in') AS incoming,
+        COUNT(*) FILTER (WHERE direction = 'out') AS outgoing
+      FROM wa_messages
+      WHERE created_at >= CURRENT_DATE - INTERVAL '14 days'
+      GROUP BY created_at::date ORDER BY created_at::date ASC
+    `)
+    return rows.map(r => ({
+      date: toDateStr(r.date),
+      incoming: parseInt(r.incoming),
+      outgoing: parseInt(r.outgoing),
+    }))
+  } catch { return [] }
+}
+
+export async function getPeakHours(dbUrl: string): Promise<PeakHour[]> {
+  try {
+    const rows = await clientQuery<{ hour: string; count: string }>(dbUrl, `
+      SELECT EXTRACT(HOUR FROM created_at)::int AS hour, COUNT(*) AS count
+      FROM wa_messages
+      WHERE created_at >= CURRENT_DATE - INTERVAL '30 days' AND direction = 'in'
+      GROUP BY hour ORDER BY hour ASC
+    `)
+    return rows.map(r => ({ hour: parseInt(r.hour), count: parseInt(r.count) }))
+  } catch { return [] }
+}
+
+export async function getLanguageStats(dbUrl: string): Promise<LanguageStat[]> {
+  try {
+    const rows = await clientQuery<{ lang: string; count: string }>(dbUrl, `
+      SELECT COALESCE(lang, 'unknown') AS lang, COUNT(*) AS count
+      FROM wa_messages
+      WHERE direction = 'in' AND created_at >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY lang ORDER BY count DESC LIMIT 8
+    `)
+    return rows.map(r => ({ lang: String(r.lang), count: parseInt(String(r.count)) }))
+  } catch { return [] }
+}
+
+export async function getTopIntents(dbUrl: string): Promise<IntentStat[]> {
+  try {
+    return clientQuery<IntentStat>(dbUrl, `
+      SELECT intent, COUNT(*) AS count
+      FROM wa_messages
+      WHERE intent IS NOT NULL AND intent != ''
+        AND created_at >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY intent ORDER BY count DESC LIMIT 8
+    `)
+  } catch { return [] }
+}
+
+export async function getDailyAiCost(dbUrl: string): Promise<DailyAiCost[]> {
+  try {
+    const rows = await clientQuery<{ date: unknown; total_tokens: string; cost_usd: string }>(dbUrl, `
+      SELECT
+        to_char(created_at::date, 'YYYY-MM-DD') AS date,
+        SUM(total_tokens)::int AS total_tokens,
+        ROUND(SUM(cost_usd)::numeric, 4) AS cost_usd
+      FROM ai_usage
+      WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY created_at::date ORDER BY created_at::date ASC
+    `)
+    return rows.map(r => ({
+      date: toDateStr(r.date),
+      total_tokens: parseInt(r.total_tokens),
+      cost_usd: parseFloat(r.cost_usd),
+    }))
+  } catch { return [] }
+}
+
+export async function getWaConversations(dbUrl: string): Promise<Conversation[]> {
+  try {
+    const rows = await clientQuery<{
+      contact_id: string
+      last_message: string | null
+      last_message_at: unknown
+      unread_count: string
+      needs_human: boolean | null
+      last_intent: string | null
+      lang: string | null
+    }>(dbUrl, `
+      SELECT
+        conv.contact_id,
+        last_msg.last_message,
+        conv.last_message_at,
+        conv.unread_count,
+        s.needs_human,
+        s.bot_paused,
+        s.last_intent,
+        s.lang
+      FROM (
+        SELECT
+          CASE WHEN direction='in' THEN sender ELSE recipient END AS contact_id,
+          MAX(created_at) AS last_message_at,
+          -- unread = incoming messages since last outgoing reply
+          COUNT(*) FILTER (WHERE direction = 'in'
+            AND created_at > COALESCE(
+              (SELECT MAX(m2.created_at) FROM wa_messages m2
+               WHERE m2.direction = 'out'
+               AND (CASE WHEN direction='in' THEN sender ELSE recipient END) =
+                   (CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END)),
+              '1970-01-01'
+            )
+          ) AS unread_count
+        FROM wa_messages
+        GROUP BY CASE WHEN direction='in' THEN sender ELSE recipient END
+      ) conv
+      LEFT JOIN LATERAL (
+        SELECT text AS last_message
+        FROM wa_messages m2
+        WHERE CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END = conv.contact_id
+        ORDER BY m2.created_at DESC LIMIT 1
+      ) last_msg ON true
+      LEFT JOIN wa_sessions s ON s.sender = conv.contact_id
+      ORDER BY s.needs_human DESC NULLS LAST, conv.last_message_at DESC
+      LIMIT 100
+    `)
+
+    return rows.map(r => ({
+      contact_id: String(r.contact_id),
+      display_name: null,
+      last_message: r.last_message ? String(r.last_message) : null,
+      last_message_at: r.last_message_at instanceof Date
+        ? r.last_message_at : new Date(String(r.last_message_at)),
+      unread_count: parseInt(String(r.unread_count)) || 0,
+      platform: 'whatsapp',
+      status: 'open',
+      needs_human: r.needs_human ?? false,
+      bot_paused: (r as any).bot_paused ?? false,
+      last_intent: r.last_intent ?? null,
+      lang: r.lang ?? null,
+      conversation_key: null,
+    }))
+  } catch (e) {
+    console.error('[getWaConversations]', e)
+    return []
+  }
+}
+
+export async function getWaMessages(dbUrl: string, contactId: string): Promise<WaMessage[]> {
+  try {
+    return clientQuery<WaMessage>(dbUrl, `
+      SELECT
+        m.id, m.created_at, m.sender, m.recipient, m.direction,
+        m.message_id, m.text, m.message_type, m.intent, m.lang,
+        m.location_name, m.meta_json, m.resolved_by, m.confidence,
+        m.reply_to_message_id, m.conversation_key, m.ai_used,
+        (${CONTACT_ID}) AS contact_id,
+        (SELECT ws.status FROM wa_statuses ws
+         WHERE ws.message_id = m.message_id
+         ORDER BY ws.status_timestamp DESC LIMIT 1) AS status
+      FROM wa_messages m
+      WHERE (${CONTACT_ID}) = $1
+      ORDER BY m.created_at ASC LIMIT 200
+    `, [contactId])
+  } catch { return [] }
+}
+
+export async function getVbConversations(dbUrl: string): Promise<Conversation[]> {
+  try {
+    const rows = await clientQuery<{
+      contact_id: string; last_message: string | null
+      last_message_at: unknown; unread_count: string
+    }>(dbUrl, `
+      SELECT
+        conv.contact_id,
+        last_msg.last_message,
+        conv.last_message_at,
+        conv.unread_count
+      FROM (
+        SELECT
+          CASE WHEN direction='in' THEN sender ELSE recipient END AS contact_id,
+          MAX(created_at) AS last_message_at,
+          COUNT(*) FILTER (WHERE direction = 'in') AS unread_count
+        FROM vb_messages
+        GROUP BY CASE WHEN direction='in' THEN sender ELSE recipient END
+      ) conv
+      LEFT JOIN LATERAL (
+        SELECT text AS last_message FROM vb_messages m2
+        WHERE CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END = conv.contact_id
+        ORDER BY m2.created_at DESC LIMIT 1
+      ) last_msg ON true
+      ORDER BY conv.last_message_at DESC LIMIT 100
+    `)
+    return rows.map(r => ({
+      contact_id: String(r.contact_id),
+      display_name: null,
+      last_message: r.last_message ? String(r.last_message) : null,
+      last_message_at: r.last_message_at instanceof Date
+        ? r.last_message_at : new Date(String(r.last_message_at)),
+      unread_count: parseInt(String(r.unread_count)) || 0,
+      platform: 'viber',
+      status: 'open',
+    }))
+  } catch { return [] }
+}
+
+export async function getVbMessages(dbUrl: string, contactId: string): Promise<WaMessage[]> {
+  try {
+    return clientQuery<WaMessage>(dbUrl, `
+      SELECT
+        m.id, m.created_at, m.sender, m.recipient, m.direction,
+        m.message_id, m.text, m.message_type, m.intent, m.lang,
+        NULL AS location_name, m.meta_json,
+        NULL AS resolved_by, NULL AS confidence,
+        NULL AS reply_to_message_id, m.conversation_key, m.ai_used,
+        CASE WHEN m.direction='in' THEN m.sender ELSE m.recipient END AS contact_id,
+        NULL AS status
+      FROM vb_messages m
+      WHERE CASE WHEN m.direction='in' THEN m.sender ELSE m.recipient END = $1
+      ORDER BY m.created_at ASC LIMIT 200
+    `, [contactId])
+  } catch { return [] }
+}
