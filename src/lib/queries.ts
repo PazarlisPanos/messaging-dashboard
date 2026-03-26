@@ -259,7 +259,6 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
       contact_id: string; last_message: string | null
       last_message_at: unknown; unread_count: string
       needs_human: boolean | null; bot_paused: boolean | null
-      conversation_key: string | null
     }>(dbUrl, `
       SELECT
         conv.contact_id,
@@ -267,8 +266,7 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
         conv.last_message_at,
         conv.unread_count,
         COALESCE(s.bot_paused, FALSE) AS bot_paused,
-        COALESCE(s.needs_human, FALSE) AS needs_human,
-        s.conversation_key
+        COALESCE(s.needs_human, FALSE) AS needs_human
       FROM (
         SELECT
           CASE WHEN direction='in' THEN sender ELSE recipient END AS contact_id,
@@ -297,7 +295,7 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
       status: 'open',
       needs_human: r.needs_human ?? false,
       bot_paused: r.bot_paused ?? false,
-      conversation_key: r.conversation_key ?? null,
+      conversation_key: null,
     }))
   } catch (e) {
     console.error('[getVbConversations]', e)
