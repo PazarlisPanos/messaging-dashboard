@@ -4,6 +4,11 @@ import type { WaMessage } from '@/types'
 
 type Message = Pick<WaMessage, 'direction' | 'text' | 'created_at' | 'message_type' | 'status' | 'intent' | 'ai_used' | 'media_url'>
 
+function getDriveId(url: string): string | null {
+  const match = url?.match(/\/d\/([a-zA-Z0-9_-]+)/)
+  return match ? match[1] : null
+}
+
 export default function MessageBubble({ msg }: { msg: Message }) {
   const isOut = msg.direction === 'out'
 
@@ -13,21 +18,28 @@ export default function MessageBubble({ msg }: { msg: Message }) {
         'max-w-[72%] rounded-2xl px-3.5 py-2.5',
         isOut ? 'bg-accent/80 text-white rounded-br-sm' : 'bg-white/8 text-[#e2e2ea] rounded-bl-sm'
       )}>
-        {msg.message_type === 'image' && msg.media_url && (
-          <img
-            src={msg.media_url}
-            alt="image"
-            onClick={() => window.open(msg.media_url!, '_blank')}
-            style={{ maxWidth: 200, borderRadius: 8, cursor: 'pointer', display: 'block', marginBottom: 4 }}
-          />
-        )}
+        {msg.message_type === 'image' && msg.media_url && (() => {
+          const fileId = getDriveId(msg.media_url!)
+          const thumb = fileId ? `https://drive.google.com/thumbnail?id=${fileId}&sz=w400` : msg.media_url!
+          return (
+            <img
+              src={thumb}
+              alt="image"
+              onClick={() => window.open(msg.media_url!, '_blank')}
+              style={{ maxWidth: 200, borderRadius: 8, cursor: 'pointer', display: 'block', marginBottom: 4 }}
+            />
+          )
+        })()}
         {msg.message_type === 'audio' && msg.media_url && (
-          <audio controls src={msg.media_url} style={{ display: 'block', marginBottom: 4 }} />
+          <a href={msg.media_url} target="_blank" rel="noreferrer"
+            style={{ display: 'inline-block', marginBottom: 4, padding: '6px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.1)', fontSize: 13, textDecoration: 'none', color: 'inherit' }}>
+            🎵 Άκου το voice message
+          </a>
         )}
         {msg.message_type === 'video' && msg.media_url && (
           <a href={msg.media_url} target="_blank" rel="noreferrer"
-            className="text-xs underline opacity-70 block mb-1">
-            Open video
+            style={{ display: 'inline-block', marginBottom: 4, padding: '6px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.1)', fontSize: 13, textDecoration: 'none', color: 'inherit' }}>
+            🎬 Άνοιξε το βίντεο
           </a>
         )}
 
