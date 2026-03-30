@@ -30,16 +30,17 @@ export default function MessageBubble({ msg }: { msg: Message }) {
             />
           )
         })()}
-        {msg.message_type === 'audio' && msg.media_url && (
-          <a href={msg.media_url} target="_blank" rel="noreferrer"
-            style={{ display: 'inline-block', marginBottom: 4, padding: '6px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.1)', fontSize: 13, textDecoration: 'none', color: 'inherit' }}>
-            🎵 Άκου το voice message
-          </a>
-        )}
-        {msg.message_type === 'video' && msg.media_url && (
-          <a href={msg.media_url} target="_blank" rel="noreferrer"
-            style={{ display: 'inline-block', marginBottom: 4, padding: '6px 12px', borderRadius: 8, background: 'rgba(255,255,255,0.1)', fontSize: 13, textDecoration: 'none', color: 'inherit' }}>
-            🎬 Άνοιξε το βίντεο
+        {msg.message_type !== 'image' && msg.message_type !== 'text' && msg.media_url && (
+          <a href={msg.media_url} target="_blank" rel="noreferrer" style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 500,
+            background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.15)',
+            color: '#fff', cursor: 'pointer', textDecoration: 'none', marginTop: 4,
+          }}>
+            {msg.message_type === 'audio' ? '🎵 Άκου το voice message'
+              : msg.message_type === 'video' ? '🎬 Προβολή βίντεο'
+              : msg.message_type === 'document' ? '📄 Προβολή αρχείου'
+              : '📎 Προβολή αρχείου'}
           </a>
         )}
 
