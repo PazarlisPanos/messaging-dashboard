@@ -35,6 +35,8 @@ export interface WaMessage {
   ai_used: boolean | null
   contact_id: string
   status?: string | null
+  media_url?: string | null
+  media_drive_id?: string | null
 }
 
 export interface Conversation {

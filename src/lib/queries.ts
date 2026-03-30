@@ -242,6 +242,7 @@ export async function getWaMessages(dbUrl: string, contactId: string): Promise<W
         m.message_id, m.text, m.message_type, m.intent, m.lang,
         m.location_name, m.meta_json, m.resolved_by, m.confidence,
         m.reply_to_message_id, m.conversation_key, m.ai_used,
+        m.media_url, m.media_drive_id,
         (${CONTACT_ID}) AS contact_id,
         (SELECT ws.status FROM wa_statuses ws
          WHERE ws.message_id = m.message_id
