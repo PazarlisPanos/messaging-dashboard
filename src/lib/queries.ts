@@ -1,7 +1,7 @@
 import { clientQuery } from './db'
 import type {
   DashboardStats, DailyMessageCount, PeakHour,
-  Conversation, WaMessage, LanguageStat, IntentStat, DailyAiCost,
+  Conversation, WaMessage, LanguageStat, IntentStat, DailyAiCost, AiCostByPlatform,
 } from '@/types'
 
 const CONTACT_ID = `CASE WHEN direction = 'in' THEN sender ELSE recipient END`
@@ -29,7 +29,8 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
         COUNT(*) FILTER (WHERE direction = 'out' AND ai_used = TRUE) AS ai_out,
         -- Manual: outgoing messages where ai_used is false or null
         COUNT(*) FILTER (WHERE direction = 'out' AND (ai_used = FALSE OR ai_used IS NULL)) AS manual_out,
-        (SELECT COUNT(*) FROM wa_sessions WHERE needs_human = TRUE) AS needs_human,
+        (SELECT COUNT(*) FROM wa_sessions WHERE needs_human = TRUE) +
+        (SELECT COUNT(*) FROM vb_sessions WHERE needs_human = TRUE) AS needs_human,
         -- Confidence is 0-1 scale
         ROUND(AVG(confidence) FILTER (WHERE confidence IS NOT NULL AND confidence <= 1)::numeric, 4) AS avg_confidence
       FROM wa_messages
@@ -328,5 +329,27 @@ export async function getVbMessages(dbUrl: string, contactId: string): Promise<W
       WHERE CASE WHEN m.direction='in' THEN m.sender ELSE m.recipient END = $1
       ORDER BY m.created_at ASC LIMIT 200
     `, [contactId])
+  } catch { return [] }
+}
+
+export async function getAiCostByPlatform(dbUrl: string): Promise<AiCostByPlatform[]> {
+  try {
+    const rows = await clientQuery<{ platform: string; total_tokens: string; cost_usd: string; message_count: string }>(dbUrl, `
+      SELECT
+        COALESCE(platform, 'whatsapp') AS platform,
+        SUM(total_tokens)::int AS total_tokens,
+        ROUND(SUM(cost_usd)::numeric, 4) AS cost_usd,
+        COUNT(*) AS message_count
+      FROM ai_usage
+      WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'
+      GROUP BY platform
+      ORDER BY cost_usd DESC
+    `)
+    return rows.map(r => ({
+      platform: String(r.platform),
+      total_tokens: parseInt(r.total_tokens) || 0,
+      cost_usd: parseFloat(r.cost_usd) || 0,
+      message_count: parseInt(r.message_count) || 0,
+    }))
   } catch { return [] }
 }

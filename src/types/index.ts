@@ -95,3 +95,10 @@ export interface DailyAiCost {
   total_tokens: number
   cost_usd: number
 }
+
+export interface AiCostByPlatform {
+  platform: string
+  total_tokens: number
+  cost_usd: number
+  message_count: number
+}

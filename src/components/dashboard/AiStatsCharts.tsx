@@ -5,7 +5,7 @@ import {
   XAxis, YAxis, Tooltip, ResponsiveContainer,
 } from 'recharts'
 import { format } from 'date-fns'
-import type { DailyAiCost, LanguageStat, DashboardStats } from '@/types'
+import type { DailyAiCost, LanguageStat, DashboardStats, AiCostByPlatform } from '@/types'
 
 function safeFormat(dateStr: string) {
   try {
@@ -124,6 +124,58 @@ export function AiVsManualChart({ stats }: { stats: DashboardStats }) {
             </div>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+const PLATFORM_CONFIG: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  whatsapp: { label: 'WhatsApp', color: '#25d366', bg: 'rgba(37,211,102,0.08)', border: 'rgba(37,211,102,0.2)' },
+  viber:    { label: 'Viber',    color: '#9b8fff', bg: 'rgba(155,143,255,0.08)', border: 'rgba(155,143,255,0.2)' },
+}
+
+export function AiCostByPlatformCard({ data }: { data: AiCostByPlatform[] }) {
+  const total = (data || []).reduce((s, r) => s + r.cost_usd, 0)
+
+  if (!data || data.length === 0) {
+    return (
+      <div className="card">
+        <h3 className="text-sm font-semibold text-white mb-1">AI Cost by Platform</h3>
+        <p className="text-xs mb-4" style={{ color: '#6b7280' }}>Last 30 days</p>
+        <p className="text-xs" style={{ color: '#6b7280' }}>No data yet</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="card">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-sm font-semibold text-white">AI Cost by Platform</h3>
+          <p className="text-xs mt-0.5" style={{ color: '#6b7280' }}>Last 30 days</p>
+        </div>
+        <p className="text-sm font-bold text-white">${total.toFixed(4)}</p>
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {data.map(row => {
+          const cfg = PLATFORM_CONFIG[row.platform] ?? { label: row.platform, color: '#6b7280', bg: 'rgba(107,114,128,0.08)', border: 'rgba(107,114,128,0.2)' }
+          const pct = total > 0 ? (row.cost_usd / total) * 100 : 0
+          return (
+            <div key={row.platform} style={{ background: cfg.bg, border: `1px solid ${cfg.border}`, borderRadius: 8, padding: '10px 12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                <span style={{ fontSize: 12, fontWeight: 600, color: cfg.color }}>{cfg.label}</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>${row.cost_usd.toFixed(4)}</span>
+              </div>
+              <div style={{ height: 4, borderRadius: 4, background: 'rgba(255,255,255,0.06)', marginBottom: 6 }}>
+                <div style={{ height: '100%', borderRadius: 4, width: `${pct.toFixed(1)}%`, background: cfg.color, opacity: 0.7 }} />
+              </div>
+              <div style={{ display: 'flex', gap: 12, fontSize: 11, color: '#6b7280' }}>
+                <span>{row.total_tokens.toLocaleString()} tokens</span>
+                <span>{row.message_count.toLocaleString()} msgs</span>
+              </div>
+            </div>
+          )
+        })}
       </div>
     </div>
   )

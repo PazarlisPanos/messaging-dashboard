@@ -1,13 +1,13 @@
 import { getClient } from '@/lib/clients'
 import {
   getDashboardStats, getDailyMessages, getPeakHours,
-  getLanguageStats, getDailyAiCost, getBotPausedCount,
+  getLanguageStats, getDailyAiCost, getBotPausedCount, getAiCostByPlatform,
 } from '@/lib/queries'
 import { notFound } from 'next/navigation'
 import StatCard from '@/components/dashboard/StatCard'
 import MessagesChart from '@/components/dashboard/MessagesChart'
 import { PlatformBreakdown, PeakHoursChart } from '@/components/dashboard/PlatformBreakdown'
-import { AiCostChart, AiVsManualChart, LanguageChart } from '@/components/dashboard/AiStatsCharts'
+import { AiCostChart, AiVsManualChart, LanguageChart, AiCostByPlatformCard } from '@/components/dashboard/AiStatsCharts'
 import {
   MessageCircle, ArrowDownLeft, ArrowUpRight,
   Users, MessageSquare, Smartphone, CalendarDays, AlertTriangle, BotOff,
@@ -29,13 +29,14 @@ export default async function ClientDashboardPage({ params }: { params: { client
   const db = client.database_url
 
   // Fetch all data with individual error handling
-  const [stats, daily, peaks, langs, aiCost, botPausedCount] = await Promise.all([
+  const [stats, daily, peaks, langs, aiCost, botPausedCount, aiCostByPlatform] = await Promise.all([
     getDashboardStats(db).catch(() => EMPTY_STATS),
     getDailyMessages(db).catch(() => []),
     getPeakHours(db).catch(() => []),
     getLanguageStats(db).catch(() => []),
     getDailyAiCost(db).catch(() => []),
     getBotPausedCount(db).catch(() => 0),
+    getAiCostByPlatform(db).catch(() => []),
   ])
 
   return (
@@ -101,6 +102,10 @@ export default async function ClientDashboardPage({ params }: { params: { client
         <AiCostChart data={aiCost} />
         <AiVsManualChart stats={stats} />
         <LanguageChart data={langs} />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <AiCostByPlatformCard data={aiCostByPlatform} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
