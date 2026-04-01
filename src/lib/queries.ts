@@ -170,6 +170,7 @@ export async function getWaConversations(dbUrl: string): Promise<Conversation[]>
   try {
     const rows = await clientQuery<{
       contact_id: string
+      display_name: string | null
       last_message: string | null
       last_message_at: unknown
       unread_count: string
@@ -179,6 +180,7 @@ export async function getWaConversations(dbUrl: string): Promise<Conversation[]>
     }>(dbUrl, `
       SELECT
         conv.contact_id,
+        s.display_name,
         last_msg.last_message,
         conv.last_message_at,
         conv.unread_count,
@@ -216,7 +218,7 @@ export async function getWaConversations(dbUrl: string): Promise<Conversation[]>
 
     return rows.map(r => ({
       contact_id: String(r.contact_id),
-      display_name: null,
+      display_name: r.display_name ?? null,
       last_message: r.last_message ? String(r.last_message) : null,
       last_message_at: r.last_message_at instanceof Date
         ? r.last_message_at : new Date(String(r.last_message_at)),
