@@ -18,7 +18,7 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
     const [wa] = await clientQuery<{
       total: string; incoming: string; outgoing: string
       unique_contacts: string; ai_out: string; manual_out: string
-      needs_human: string; avg_confidence: string
+      needs_human: string; avg_confidence: string; conversations_answered: string
     }>(dbUrl, `
       SELECT
         COUNT(*) AS total,
@@ -32,7 +32,9 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
         (SELECT COUNT(*) FROM wa_sessions WHERE needs_human = TRUE) +
         (SELECT COUNT(*) FROM vb_sessions WHERE needs_human = TRUE) AS needs_human,
         -- Confidence is 0-1 scale
-        ROUND(AVG(confidence) FILTER (WHERE confidence IS NOT NULL AND confidence <= 1)::numeric, 4) AS avg_confidence
+        ROUND(AVG(confidence) FILTER (WHERE confidence IS NOT NULL AND confidence <= 1)::numeric, 4) AS avg_confidence,
+        -- Contacts that have at least one outgoing reply
+        COUNT(DISTINCT CASE WHEN direction = 'out' THEN recipient END) AS conversations_answered
       FROM wa_messages
     `)
     const [today] = await clientQuery<{ count: string }>(dbUrl,
@@ -67,6 +69,7 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
       ai_used_count: aiOut,
       manual_count: manualOut,
       avg_confidence: wa.avg_confidence ? parseFloat(wa.avg_confidence) : null,
+      conversations_answered: parseInt(wa.conversations_answered) || 0,
     }
   } catch {
     return {
@@ -74,6 +77,7 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
       unique_contacts: 0, total_conversations: 0, wa_messages: 0,
       vb_messages: 0, messages_today: 0, needs_human_count: 0,
       ai_used_count: 0, manual_count: 0, avg_confidence: null,
+      conversations_answered: 0,
     }
   }
 }
@@ -263,9 +267,11 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
       contact_id: string; last_message: string | null
       last_message_at: unknown; unread_count: string
       needs_human: boolean | null; bot_paused: boolean | null
+      display_name: string | null
     }>(dbUrl, `
       SELECT
         conv.contact_id,
+        s.display_name,
         last_msg.last_message,
         conv.last_message_at,
         conv.unread_count,
@@ -299,7 +305,7 @@ export async function getVbConversations(dbUrl: string): Promise<Conversation[]>
     `)
     return rows.map(r => ({
       contact_id: String(r.contact_id),
-      display_name: null,
+      display_name: r.display_name ?? null,
       last_message: r.last_message ? String(r.last_message) : null,
       last_message_at: r.last_message_at instanceof Date
         ? r.last_message_at : new Date(String(r.last_message_at)),
@@ -332,6 +338,64 @@ export async function getVbMessages(dbUrl: string, contactId: string): Promise<W
       ORDER BY m.created_at ASC LIMIT 200
     `, [contactId])
   } catch { return [] }
+}
+
+export async function getTopIntent(dbUrl: string): Promise<{ intent: string; count: number } | null> {
+  try {
+    const rows = await clientQuery<{ intent: string; count: string }>(dbUrl, `
+      SELECT last_intent AS intent, COUNT(*) AS count
+      FROM wa_sessions
+      WHERE last_intent IS NOT NULL AND last_intent != ''
+      GROUP BY last_intent ORDER BY count DESC LIMIT 1
+    `)
+    if (!rows[0]) return null
+    return { intent: rows[0].intent, count: parseInt(rows[0].count) }
+  } catch { return null }
+}
+
+export async function getFallbackRate(dbUrl: string): Promise<{ with_fallback: number; total: number }> {
+  try {
+    const [r] = await clientQuery<{ with_fallback: string; total: string }>(dbUrl, `
+      SELECT
+        COUNT(*) FILTER (WHERE fallback_count > 0) AS with_fallback,
+        COUNT(*) AS total
+      FROM wa_sessions
+    `)
+    return { with_fallback: parseInt(r.with_fallback) || 0, total: parseInt(r.total) || 0 }
+  } catch { return { with_fallback: 0, total: 0 } }
+}
+
+export async function getResolvedToday(dbUrl: string): Promise<number> {
+  try {
+    const [r] = await clientQuery<{ count: string }>(dbUrl, `
+      SELECT COUNT(*) AS count FROM wa_sessions
+      WHERE resolved_by IS NOT NULL AND last_message_at::date = CURRENT_DATE
+    `)
+    return parseInt(r.count) || 0
+  } catch { return 0 }
+}
+
+export async function getAvgResponseTime(dbUrl: string): Promise<number | null> {
+  try {
+    const [r] = await clientQuery<{ avg_seconds: string | null }>(dbUrl, `
+      SELECT ROUND(AVG(diff_seconds)::numeric, 0) AS avg_seconds
+      FROM (
+        SELECT
+          EXTRACT(EPOCH FROM (
+            MIN(out_msg.created_at) - in_msg.created_at
+          )) AS diff_seconds
+        FROM wa_messages in_msg
+        JOIN wa_messages out_msg
+          ON out_msg.conversation_key = in_msg.conversation_key
+          AND out_msg.direction = 'out'
+          AND out_msg.created_at > in_msg.created_at
+        WHERE in_msg.direction = 'in'
+        GROUP BY in_msg.id
+      ) t
+      WHERE diff_seconds > 0 AND diff_seconds < 3600
+    `)
+    return r.avg_seconds ? parseInt(r.avg_seconds) : null
+  } catch { return null }
 }
 
 export async function getAiCostByPlatform(dbUrl: string): Promise<AiCostByPlatform[]> {

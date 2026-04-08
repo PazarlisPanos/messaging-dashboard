@@ -67,6 +67,7 @@ export interface DashboardStats {
   ai_used_count: number
   manual_count: number
   avg_confidence: number | null
+  conversations_answered: number
 }
 
 export interface DailyMessageCount {

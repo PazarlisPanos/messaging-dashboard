@@ -2,15 +2,19 @@ import { getClient } from '@/lib/clients'
 import {
   getDashboardStats, getDailyMessages, getPeakHours,
   getLanguageStats, getDailyAiCost, getBotPausedCount, getAiCostByPlatform,
+  getTopIntent, getFallbackRate, getResolvedToday, getAvgResponseTime,
 } from '@/lib/queries'
 import { notFound } from 'next/navigation'
 import StatCard from '@/components/dashboard/StatCard'
 import MessagesChart from '@/components/dashboard/MessagesChart'
 import { PlatformBreakdown, PeakHoursChart } from '@/components/dashboard/PlatformBreakdown'
 import { AiCostChart, AiVsManualChart, LanguageChart, AiCostByPlatformCard } from '@/components/dashboard/AiStatsCharts'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 import {
   MessageCircle, ArrowDownLeft, ArrowUpRight,
   Users, MessageSquare, Smartphone, CalendarDays, AlertTriangle, BotOff,
+  CheckCircle, Clock,
 } from 'lucide-react'
 
 export const revalidate = 60
@@ -20,24 +24,53 @@ const EMPTY_STATS = {
   unique_contacts: 0, total_conversations: 0, wa_messages: 0,
   vb_messages: 0, messages_today: 0, needs_human_count: 0,
   ai_used_count: 0, manual_count: 0, avg_confidence: null,
+  conversations_answered: 0,
+}
+
+function formatResponseTime(seconds: number | null): string {
+  if (!seconds) return '—'
+  if (seconds < 60) return `${seconds}s`
+  const m = Math.floor(seconds / 60)
+  const s = seconds % 60
+  return s > 0 ? `${m}m ${s}s` : `${m}m`
 }
 
 export default async function ClientDashboardPage({ params }: { params: { client: string } }) {
   const client = await getClient(params.client)
   if (!client) notFound()
 
+  const session = await getServerSession(authOptions)
+  const role = (session?.user as any)?.role ?? 'operator'
+  const isSuperAdmin = role === 'super_admin'
+
   const db = client.database_url
 
-  // Fetch all data with individual error handling
-  const [stats, daily, peaks, langs, aiCost, botPausedCount, aiCostByPlatform] = await Promise.all([
+  const [stats, daily, peaks, langs, botPausedCount, topIntent, resolvedToday, fallbackRate, avgResponseTime] = await Promise.all([
     getDashboardStats(db).catch(() => EMPTY_STATS),
     getDailyMessages(db).catch(() => []),
     getPeakHours(db).catch(() => []),
     getLanguageStats(db).catch(() => []),
-    getDailyAiCost(db).catch(() => []),
     getBotPausedCount(db).catch(() => 0),
-    getAiCostByPlatform(db).catch(() => []),
+    getTopIntent(db).catch(() => null),
+    getResolvedToday(db).catch(() => 0),
+    getFallbackRate(db).catch(() => ({ with_fallback: 0, total: 0 })),
+    getAvgResponseTime(db).catch(() => null),
   ])
+
+  const [aiCost, aiCostByPlatform] = isSuperAdmin
+    ? await Promise.all([
+        getDailyAiCost(db).catch(() => []),
+        getAiCostByPlatform(db).catch(() => []),
+      ])
+    : [[], []]
+
+  const conversationsAnsweredPct = stats.unique_contacts > 0
+    ? Math.round((stats.conversations_answered / stats.unique_contacts) * 100)
+    : 0
+
+  const fallbackPct = fallbackRate.total > 0
+    ? `${((fallbackRate.with_fallback / fallbackRate.total) * 100).toFixed(1)}%`
+    : '—'
 
   return (
     <div className="space-y-6">
@@ -93,20 +126,57 @@ export default async function ClientDashboardPage({ params }: { params: { client
         />
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Top intent"
+          value={topIntent?.intent ?? '—'}
+          icon={MessageCircle}
+          iconColor="text-cyan-400"
+        />
+        <StatCard
+          label="Resolved today"
+          value={resolvedToday}
+          icon={CheckCircle}
+          iconColor="text-green-400"
+        />
+        <StatCard
+          label="Fallback rate"
+          value={fallbackPct}
+          icon={AlertTriangle}
+          iconColor="text-amber-400"
+        />
+        <StatCard
+          label="Avg response time"
+          value={formatResponseTime(avgResponseTime)}
+          icon={Clock}
+          iconColor="text-blue-400"
+        />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2"><MessagesChart data={daily} /></div>
         <PlatformBreakdown stats={stats} />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <AiCostChart data={aiCost} />
-        <AiVsManualChart stats={stats} />
-        <LanguageChart data={langs} />
-      </div>
+      {isSuperAdmin && (
+        <>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <AiCostChart data={aiCost} />
+            <AiVsManualChart stats={stats} />
+            <LanguageChart data={langs} />
+          </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <AiCostByPlatformCard data={aiCostByPlatform} />
-      </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <AiCostByPlatformCard data={aiCostByPlatform} />
+          </div>
+        </>
+      )}
+
+      {!isSuperAdmin && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <LanguageChart data={langs} />
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <PeakHoursChart data={peaks} />
@@ -121,10 +191,8 @@ export default async function ClientDashboardPage({ params }: { params: { client
                   : '—',
               },
               {
-                label: 'Response rate',
-                value: stats.incoming_messages > 0
-                  ? `${Math.round((stats.outgoing_messages / stats.incoming_messages) * 100)}%`
-                  : '—',
+                label: 'Conversations answered',
+                value: stats.unique_contacts > 0 ? `${conversationsAnsweredPct}%` : '—',
               },
               {
                 label: 'Peak hour',
@@ -132,18 +200,20 @@ export default async function ClientDashboardPage({ params }: { params: { client
                   ? `${String(peaks.reduce((a, b) => a.count > b.count ? a : b).hour).padStart(2, '0')}:00`
                   : '—',
               },
-              {
-                label: 'AI automation rate',
-                value: stats.total_messages > 0
-                  ? `${Math.round((stats.ai_used_count / stats.total_messages) * 100)}%`
-                  : '—',
-              },
-              {
-                label: 'Total AI cost (30d)',
-                value: aiCost.length > 0
-                  ? `$${aiCost.reduce((s, d) => s + d.cost_usd, 0).toFixed(4)}`
-                  : '—',
-              },
+              ...(isSuperAdmin ? [
+                {
+                  label: 'AI automation rate',
+                  value: stats.total_messages > 0
+                    ? `${Math.round((stats.ai_used_count / stats.total_messages) * 100)}%`
+                    : '—',
+                },
+                {
+                  label: 'Total AI cost (30d)',
+                  value: aiCost.length > 0
+                    ? `$${aiCost.reduce((s, d) => s + d.cost_usd, 0).toFixed(4)}`
+                    : '—',
+                },
+              ] : []),
             ].map(({ label, value }) => (
               <div key={label} className="flex items-center justify-between py-3"
                 style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
