@@ -164,7 +164,7 @@ export default function InboxView({
   )
 
   const threadPanel = (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
       {selectedConv ? (
         <>
           <div style={{ padding: '10px 14px', borderBottom: '1px solid rgba(255,255,255,0.06)', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
@@ -259,7 +259,7 @@ export default function InboxView({
         <div style={{ width: 300, flexShrink: 0, borderRight: '1px solid rgba(255,255,255,0.06)' }}>
           {listPanel}
         </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
           {threadPanel}
         </div>
       </div>
