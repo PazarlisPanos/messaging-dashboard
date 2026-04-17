@@ -39,7 +39,7 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
       FROM wa_messages
     `)
     const [today] = await clientQuery<{ count: string }>(dbUrl,
-      `SELECT COUNT(*) AS count FROM wa_messages WHERE created_at::date = CURRENT_DATE`)
+      `SELECT (SELECT COUNT(*) FROM wa_messages WHERE created_at::date = CURRENT_DATE) + (SELECT COALESCE(COUNT(*),0) FROM vb_messages WHERE created_at::date = CURRENT_DATE) + (SELECT COALESCE(COUNT(*),0) FROM fb_messages WHERE created_at::date = CURRENT_DATE) AS count`)
 
     let vbTotal = 0
     let vbUniqueContacts = 0
@@ -118,7 +118,9 @@ export async function getBotPausedCount(dbUrl: string): Promise<number> {
         `SELECT COUNT(*) AS count FROM vb_sessions WHERE bot_paused = TRUE`)
       vbCount = parseInt(vb?.count ?? '0')
     } catch { }
-    return parseInt(wa?.count ?? '0') + vbCount
+    let fbCount = 0
+    try { const [fb] = await clientQuery<{ count: string }>(dbUrl, `SELECT COUNT(*) AS count FROM fb_sessions WHERE bot_paused = TRUE`); fbCount = parseInt(fb?.count ?? '0') } catch {}
+    return parseInt(wa?.count ?? '0') + vbCount + fbCount
   } catch { return 0 }
 }
 
@@ -405,6 +407,7 @@ export async function getFbConversations(dbUrl: string): Promise<Conversation[]>
       LIMIT 100
     `)
 
+    console.log('[getFbConversations] rows:', rows.length)
     return rows.map(r => ({
       contact_id: String(r.contact_id),
       display_name: r.display_name ?? null,
@@ -418,10 +421,7 @@ export async function getFbConversations(dbUrl: string): Promise<Conversation[]>
       bot_paused: r.bot_paused,
       conversation_key: r.conversation_key ?? null,
     }))
-  } catch (e) {
-    console.error('[getFbConversations]', e)
-    return []
-  }
+  } catch (e) { console.error('[getFbConversations]', e); return [] }
 }
 
 export async function getFbMessages(dbUrl: string, contactId: string): Promise<WaMessage[]> {
@@ -440,7 +440,7 @@ export async function getFbMessages(dbUrl: string, contactId: string): Promise<W
       WHERE CASE WHEN m.direction='in' THEN m.sender ELSE m.recipient END = $1
       ORDER BY m.created_at ASC LIMIT 200
     `, [contactId])
-  } catch { return [] }
+  } catch (e) { console.error('[getFbMessages]', e); return [] }
 }
 
 export async function getTopIntent(dbUrl: string): Promise<{ intent: string; count: number } | null> {
