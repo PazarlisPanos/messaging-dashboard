@@ -30,7 +30,8 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
         -- Manual: outgoing messages where ai_used is false or null
         COUNT(*) FILTER (WHERE direction = 'out' AND (ai_used = FALSE OR ai_used IS NULL)) AS manual_out,
         (SELECT COUNT(*) FROM wa_sessions WHERE needs_human = TRUE) +
-        (SELECT COUNT(*) FROM vb_sessions WHERE needs_human = TRUE) AS needs_human,
+        (SELECT COUNT(*) FROM vb_sessions WHERE needs_human = TRUE) +
+        (SELECT COALESCE(COUNT(*),0) FROM fb_sessions WHERE needs_human = TRUE) AS needs_human,
         -- Confidence is 0-1 scale
         ROUND(AVG(confidence) FILTER (WHERE confidence IS NOT NULL AND confidence <= 1)::numeric, 4) AS avg_confidence,
         -- Contacts that have at least one outgoing reply
@@ -52,18 +53,32 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
       vbUniqueContacts = parseInt(vb?.unique_contacts ?? '0')
     } catch { }
 
+    let fbTotal = 0
+    let fbUniqueContacts = 0
+    try {
+      const [fb] = await clientQuery<{ total: string }>(dbUrl,
+        `SELECT COUNT(*) AS total FROM fb_messages`)
+      fbTotal = parseInt(fb?.total ?? '0')
+    } catch { }
+    try {
+      const [fbUniq] = await clientQuery<{ count: string }>(dbUrl,
+        `SELECT COUNT(DISTINCT CASE WHEN direction='in' THEN sender ELSE recipient END) AS count FROM fb_messages`)
+      fbUniqueContacts = parseInt(fbUniq?.count ?? '0')
+    } catch { }
+
     const total = parseInt(wa.total)
     const aiOut = parseInt(wa.ai_out)
     const manualOut = parseInt(wa.manual_out)
     const waUniqueContacts = parseInt(wa.unique_contacts)
     return {
-      total_messages: total + vbTotal,
+      total_messages: total + vbTotal + fbTotal,
       incoming_messages: parseInt(wa.incoming),
       outgoing_messages: parseInt(wa.outgoing),
-      unique_contacts: waUniqueContacts + vbUniqueContacts,
-      total_conversations: waUniqueContacts + vbUniqueContacts,
+      unique_contacts: waUniqueContacts + vbUniqueContacts + fbUniqueContacts,
+      total_conversations: waUniqueContacts + vbUniqueContacts + fbUniqueContacts,
       wa_messages: total,
       vb_messages: vbTotal,
+      fb_messages: fbTotal,
       messages_today: parseInt(today.count),
       needs_human_count: parseInt(wa.needs_human),
       ai_used_count: aiOut,
@@ -75,7 +90,7 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
     return {
       total_messages: 0, incoming_messages: 0, outgoing_messages: 0,
       unique_contacts: 0, total_conversations: 0, wa_messages: 0,
-      vb_messages: 0, messages_today: 0, needs_human_count: 0,
+      vb_messages: 0, fb_messages: 0, messages_today: 0, needs_human_count: 0,
       ai_used_count: 0, manual_count: 0, avg_confidence: null,
       conversations_answered: 0,
     }

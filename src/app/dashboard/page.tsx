@@ -3,7 +3,7 @@ import { authOptions } from '@/lib/auth'
 import { redirect } from 'next/navigation'
 import { getAllClients } from '@/lib/clients'
 import Link from 'next/link'
-import { Building2, MessageSquare, Smartphone, ArrowRight, Plus, ShieldCheck } from 'lucide-react'
+import { Building2, MessageSquare, Smartphone, ArrowRight, Plus, ShieldCheck, MessageCircle } from 'lucide-react'
 
 export const revalidate = 0
 
@@ -59,6 +59,9 @@ export default async function SuperAdminPage() {
                   </span>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: client.vb_webhook ? '#9b8fff' : 'rgba(107,114,128,0.4)' }}>
                     <Smartphone size={11} /> Viber
+                  </span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: client.fb_webhook ? '#0084ff' : 'rgba(107,114,128,0.4)' }}>
+                    <MessageCircle size={11} /> Messenger
                   </span>
                 </div>
               </Link>

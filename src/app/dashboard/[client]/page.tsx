@@ -14,7 +14,7 @@ import { authOptions } from '@/lib/auth'
 import {
   MessageCircle, ArrowDownLeft, ArrowUpRight,
   Users, MessageSquare, Smartphone, CalendarDays, AlertTriangle, BotOff,
-  CheckCircle, Clock,
+  CheckCircle, Clock, MessagesSquare,
 } from 'lucide-react'
 
 export const revalidate = 60
@@ -22,7 +22,7 @@ export const revalidate = 60
 const EMPTY_STATS = {
   total_messages: 0, incoming_messages: 0, outgoing_messages: 0,
   unique_contacts: 0, total_conversations: 0, wa_messages: 0,
-  vb_messages: 0, messages_today: 0, needs_human_count: 0,
+  vb_messages: 0, fb_messages: 0, messages_today: 0, needs_human_count: 0,
   ai_used_count: 0, manual_count: 0, avg_confidence: null,
   conversations_answered: 0,
 }
@@ -109,9 +109,10 @@ export default async function ClientDashboardPage({ params }: { params: { client
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="WhatsApp messages" value={stats.wa_messages}        icon={MessageSquare} iconColor="text-wa" />
-        <StatCard label="Viber messages"    value={stats.vb_messages}        icon={Smartphone}    iconColor="text-vb" />
-        <StatCard label="Messages today"    value={stats.messages_today}     icon={CalendarDays}  iconColor="text-cyan-400" />
+        <StatCard label="WhatsApp messages"  value={stats.wa_messages}        icon={MessageSquare}   iconColor="text-wa" />
+        <StatCard label="Viber messages"     value={stats.vb_messages}        icon={Smartphone}      iconColor="text-vb" />
+        <StatCard label="Messenger messages" value={stats.fb_messages}        icon={MessagesSquare}  iconColor="text-blue-400" />
+        <StatCard label="Messages today"     value={stats.messages_today}     icon={CalendarDays}    iconColor="text-cyan-400" />
         <StatCard
           label="Need attention"
           value={stats.needs_human_count}

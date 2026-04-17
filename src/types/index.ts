@@ -64,6 +64,7 @@ export interface DashboardStats {
   total_conversations: number
   wa_messages: number
   vb_messages: number
+  fb_messages: number
   messages_today: number
   needs_human_count: number
   ai_used_count: number
