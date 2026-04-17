@@ -22,7 +22,7 @@ export default async function ClientViberPage({ params }: { params: { client: st
           resolveAttentionWebhook={client.resolve_attention_webhook}
         />
       </div>
-      <div className="block md:hidden" style={{ height: 'calc(100vh - 56px - 64px)' }}>
+      <div className="block md:hidden" style={{ height: '100%' }}>
         <InboxView
           platform="viber"
           initialConversations={conversations}
