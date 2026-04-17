@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getClient } from '@/lib/clients'
-import { getWaConversations, getVbConversations } from '@/lib/queries'
+import { getWaConversations, getVbConversations, getFbConversations } from '@/lib/queries'
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions)
@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
   try {
     const conversations = platform === 'viber'
       ? await getVbConversations(client.database_url)
+      : platform === 'messenger'
+      ? await getFbConversations(client.database_url)
       : await getWaConversations(client.database_url)
     return NextResponse.json({ conversations })
   } catch (err) {

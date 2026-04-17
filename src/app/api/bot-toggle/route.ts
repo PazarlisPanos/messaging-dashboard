@@ -16,8 +16,8 @@ export async function POST(req: NextRequest) {
   if (!['enable', 'disable'].includes(action)) {
     return NextResponse.json({ error: 'action must be enable or disable' }, { status: 400 })
   }
-  if (!['whatsapp', 'viber'].includes(platform)) {
-    return NextResponse.json({ error: 'platform must be whatsapp or viber' }, { status: 400 })
+  if (!['whatsapp', 'viber', 'messenger'].includes(platform)) {
+    return NextResponse.json({ error: 'platform must be whatsapp, viber or messenger' }, { status: 400 })
   }
 
   const client = await getClient(client_slug)

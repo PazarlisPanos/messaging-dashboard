@@ -14,13 +14,14 @@ interface Props {
   clientSlug: string
   waWebhook?: string | null
   vbWebhook?: string | null
+  fbWebhook?: string | null
   botToggleWebhook?: string | null
   resolveAttentionWebhook?: string | null
 }
 
 export default function InboxView({
   platform, initialConversations, clientSlug,
-  waWebhook, vbWebhook, botToggleWebhook, resolveAttentionWebhook,
+  waWebhook, vbWebhook, fbWebhook, botToggleWebhook, resolveAttentionWebhook,
 }: Props) {
   const [conversations, setConversations] = useState<Conversation[]>(initialConversations)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -33,7 +34,7 @@ export default function InboxView({
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list')
 
   const selectedConv = conversations.find(c => c.contact_id === selectedId)
-  const hasReply = platform === 'whatsapp' ? !!waWebhook : !!vbWebhook
+  const hasReply = platform === 'whatsapp' ? !!waWebhook : platform === 'viber' ? !!vbWebhook : !!fbWebhook
   const hasBotWebhook = !!botToggleWebhook
   const hasResolveWebhook = !!resolveAttentionWebhook
 
@@ -119,7 +120,7 @@ export default function InboxView({
     : conversations
 
   const needsHumanCount = conversations.filter(c => c.needs_human).length
-  const platformLabel = platform === 'whatsapp' ? 'WhatsApp' : 'Viber'
+  const platformLabel = platform === 'whatsapp' ? 'WhatsApp' : platform === 'viber' ? 'Viber' : 'Messenger'
 
   const listPanel = (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -132,7 +133,7 @@ export default function InboxView({
                 <AlertTriangle size={9} /> {needsHumanCount}
               </span>
             )}
-            <span style={{ fontSize: 11, fontWeight: 600, color: platform === 'whatsapp' ? '#25d366' : '#9b8fff' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: platform === 'whatsapp' ? '#25d366' : platform === 'viber' ? '#9b8fff' : '#0084ff' }}>
               {conversations.length} chats
             </span>
             <button onClick={() => refreshConversations(false)} disabled={loadingConvs}
@@ -213,7 +214,7 @@ export default function InboxView({
                   {selectedConv.lang}
                 </span>
               )}
-              <span className={platform === 'whatsapp' ? 'tag-wa' : 'tag-vb'} style={{ fontSize: 9 }}>{platformLabel}</span>
+              <span className={platform === 'whatsapp' ? 'tag-wa' : platform === 'viber' ? 'tag-vb' : 'tag-fb'} style={{ fontSize: 9 }}>{platformLabel}</span>
               <BotToggleButton
                 key={`${selectedConv.contact_id}-${selectedConv.bot_paused}`}
                 contactId={selectedConv.contact_id}

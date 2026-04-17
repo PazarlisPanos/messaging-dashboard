@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut } from 'next-auth/react'
-import { LayoutDashboard, MessageSquare, Smartphone, Settings, LogOut, Zap, LayoutGrid, ShieldCheck } from 'lucide-react'
+import { LayoutDashboard, MessageSquare, Smartphone, Settings, LogOut, Zap, LayoutGrid, ShieldCheck, MessageCircle } from 'lucide-react'
 
 interface Props {
   clientSlug: string
@@ -18,8 +18,9 @@ export default function Sidebar({ clientSlug, clientName, role }: Props) {
   const navItems = [
     { href: base,               label: 'Dashboard', icon: LayoutDashboard, exact: true },
     { href: `${base}/whatsapp`, label: 'WhatsApp',  icon: MessageSquare,   dot: '#25d366' },
-    { href: `${base}/viber`,    label: 'Viber',     icon: Smartphone,      dot: '#7360f2' },
-    { href: `${base}/settings`, label: 'Settings',  icon: Settings },
+    { href: `${base}/viber`,     label: 'Viber',     icon: Smartphone,     dot: '#7360f2' },
+    { href: `${base}/messenger`, label: 'Messenger', icon: MessageCircle,  dot: '#0084ff' },
+    { href: `${base}/settings`,  label: 'Settings',  icon: Settings },
   ]
 
   function isActive(href: string, exact = false) {

@@ -340,6 +340,94 @@ export async function getVbMessages(dbUrl: string, contactId: string): Promise<W
   } catch { return [] }
 }
 
+export async function getFbConversations(dbUrl: string): Promise<Conversation[]> {
+  try {
+    const rows = await clientQuery<{
+      contact_id: string
+      display_name: string | null
+      last_message: string | null
+      last_message_at: unknown
+      unread_count: string
+      needs_human: boolean | null
+      last_intent: string | null
+      lang: string | null
+    }>(dbUrl, `
+      SELECT
+        conv.contact_id,
+        s.display_name,
+        last_msg.last_message,
+        conv.last_message_at,
+        conv.unread_count,
+        s.needs_human,
+        s.bot_paused,
+        s.last_intent,
+        s.lang
+      FROM (
+        SELECT
+          CASE WHEN direction='in' THEN sender ELSE recipient END AS contact_id,
+          MAX(created_at) AS last_message_at,
+          COUNT(*) FILTER (WHERE direction = 'in'
+            AND created_at > COALESCE(
+              (SELECT MAX(m2.created_at) FROM fb_messages m2
+               WHERE m2.direction = 'out'
+               AND (CASE WHEN direction='in' THEN sender ELSE recipient END) =
+                   (CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END)),
+              '1970-01-01'
+            )
+          ) AS unread_count
+        FROM fb_messages
+        GROUP BY CASE WHEN direction='in' THEN sender ELSE recipient END
+      ) conv
+      LEFT JOIN LATERAL (
+        SELECT text AS last_message
+        FROM fb_messages m2
+        WHERE CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END = conv.contact_id
+        ORDER BY m2.created_at DESC LIMIT 1
+      ) last_msg ON true
+      LEFT JOIN fb_sessions s ON s.sender = conv.contact_id
+      ORDER BY s.needs_human DESC NULLS LAST, conv.last_message_at DESC
+      LIMIT 100
+    `)
+
+    return rows.map(r => ({
+      contact_id: String(r.contact_id),
+      display_name: r.display_name ?? null,
+      last_message: r.last_message ? String(r.last_message) : null,
+      last_message_at: r.last_message_at instanceof Date
+        ? r.last_message_at : new Date(String(r.last_message_at)),
+      unread_count: parseInt(String(r.unread_count)) || 0,
+      platform: 'messenger',
+      status: 'open',
+      needs_human: r.needs_human ?? false,
+      bot_paused: (r as any).bot_paused ?? false,
+      last_intent: r.last_intent ?? null,
+      lang: r.lang ?? null,
+      conversation_key: null,
+    }))
+  } catch (e) {
+    console.error('[getFbConversations]', e)
+    return []
+  }
+}
+
+export async function getFbMessages(dbUrl: string, contactId: string): Promise<WaMessage[]> {
+  try {
+    return clientQuery<WaMessage>(dbUrl, `
+      SELECT
+        m.id, m.created_at, m.sender, m.recipient, m.direction,
+        m.message_id, m.text, m.message_type, m.intent, m.lang,
+        m.location_name, m.meta_json, m.resolved_by, m.confidence,
+        m.reply_to_message_id, m.conversation_key, m.ai_used,
+        m.media_url, m.media_drive_id,
+        (${CONTACT_ID}) AS contact_id,
+        NULL AS status
+      FROM fb_messages m
+      WHERE (${CONTACT_ID}) = $1
+      ORDER BY m.created_at ASC LIMIT 200
+    `, [contactId])
+  } catch { return [] }
+}
+
 export async function getTopIntent(dbUrl: string): Promise<{ intent: string; count: number } | null> {
   try {
     const rows = await clientQuery<{ intent: string; count: string }>(dbUrl, `

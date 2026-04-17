@@ -14,6 +14,8 @@ export default function ClientSettingsForm({ client, isSuperAdmin }: Props) {
     database_url: client.database_url,
     wa_webhook: client.wa_webhook ?? '',
     vb_webhook: client.vb_webhook ?? '',
+    fb_webhook: client.fb_webhook ?? '',
+    fb_page_id: client.fb_page_id ?? '',
     bot_toggle_webhook: client.bot_toggle_webhook ?? '',
     resolve_attention_webhook: client.resolve_attention_webhook ?? '',
   })
@@ -90,6 +92,8 @@ export default function ClientSettingsForm({ client, isSuperAdmin }: Props) {
           {[
             { key: 'wa_webhook', label: 'WhatsApp manual reply', hint: '/webhook/client-wa-reply' },
             { key: 'vb_webhook', label: 'Viber manual reply', hint: '/webhook/client-vb-reply' },
+            { key: 'fb_webhook', label: 'Messenger manual reply', hint: '/webhook/client-fb-reply' },
+            { key: 'fb_page_id', label: 'Facebook Page ID', hint: '106603507729031' },
             { key: 'bot_toggle_webhook', label: 'Bot enable/disable toggle', hint: '/webhook/client-bot-toggle' },
             { key: 'resolve_attention_webhook', label: 'Resolve attention (needs human)', hint: '/webhook/client-resolve-attention' },
           ].map(({ key, label, hint }) => (

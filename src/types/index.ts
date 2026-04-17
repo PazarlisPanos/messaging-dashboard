@@ -1,4 +1,4 @@
-export type Platform = 'whatsapp' | 'viber'
+export type Platform = 'whatsapp' | 'viber' | 'messenger'
 export type Direction = 'in' | 'out'
 export type UserRole = 'super_admin' | 'operator'
 
@@ -11,6 +11,8 @@ export interface Client {
   vb_webhook: string | null
   bot_toggle_webhook: string | null
   resolve_attention_webhook: string | null
+  fb_webhook: string | null
+  fb_page_id: string | null
   active: boolean
   created_at: Date
 }
