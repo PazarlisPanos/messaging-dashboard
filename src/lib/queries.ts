@@ -370,24 +370,23 @@ export async function getFbConversations(dbUrl: string): Promise<Conversation[]>
   try {
     const rows = await clientQuery<{
       contact_id: string
-      display_name: string | null
       last_message: string | null
       last_message_at: unknown
       unread_count: string
-      needs_human: boolean | null
-      last_intent: string | null
-      lang: string | null
+      needs_human: boolean
+      bot_paused: boolean
+      display_name: string | null
+      conversation_key: string | null
     }>(dbUrl, `
       SELECT
         conv.contact_id,
-        s.display_name,
         last_msg.last_message,
         conv.last_message_at,
         conv.unread_count,
-        s.needs_human,
-        s.bot_paused,
-        s.last_intent,
-        s.lang
+        COALESCE(s.needs_human, FALSE) AS needs_human,
+        COALESCE(s.bot_paused, FALSE) AS bot_paused,
+        s.display_name,
+        s.conversation_key
       FROM (
         SELECT
           CASE WHEN direction='in' THEN sender ELSE recipient END AS contact_id,
@@ -405,8 +404,7 @@ export async function getFbConversations(dbUrl: string): Promise<Conversation[]>
         GROUP BY CASE WHEN direction='in' THEN sender ELSE recipient END
       ) conv
       LEFT JOIN LATERAL (
-        SELECT text AS last_message
-        FROM fb_messages m2
+        SELECT text AS last_message FROM fb_messages m2
         WHERE CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END = conv.contact_id
         ORDER BY m2.created_at DESC LIMIT 1
       ) last_msg ON true
@@ -424,11 +422,9 @@ export async function getFbConversations(dbUrl: string): Promise<Conversation[]>
       unread_count: parseInt(String(r.unread_count)) || 0,
       platform: 'messenger',
       status: 'open',
-      needs_human: r.needs_human ?? false,
-      bot_paused: (r as any).bot_paused ?? false,
-      last_intent: r.last_intent ?? null,
-      lang: r.lang ?? null,
-      conversation_key: null,
+      needs_human: r.needs_human,
+      bot_paused: r.bot_paused,
+      conversation_key: r.conversation_key ?? null,
     }))
   } catch (e) {
     console.error('[getFbConversations]', e)
@@ -445,10 +441,10 @@ export async function getFbMessages(dbUrl: string, contactId: string): Promise<W
         m.location_name, m.meta_json, m.resolved_by, m.confidence,
         m.reply_to_message_id, m.conversation_key, m.ai_used,
         m.media_url, m.media_drive_id,
-        (${CONTACT_ID}) AS contact_id,
+        CASE WHEN m.direction='in' THEN m.sender ELSE m.recipient END AS contact_id,
         NULL AS status
       FROM fb_messages m
-      WHERE (${CONTACT_ID}) = $1
+      WHERE CASE WHEN m.direction='in' THEN m.sender ELSE m.recipient END = $1
       ORDER BY m.created_at ASC LIMIT 200
     `, [contactId])
   } catch { return [] }
