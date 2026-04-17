@@ -388,12 +388,13 @@ export async function getFbConversations(dbUrl: string): Promise<Conversation[]>
         COALESCE(s.needs_human, FALSE) AS needs_human,
         COALESCE(s.bot_paused, FALSE) AS bot_paused,
         s.display_name,
-        s.conversation_key
+        conv.conversation_key
       FROM (
         SELECT
           CASE WHEN direction='in' THEN sender ELSE recipient END AS contact_id,
           MAX(created_at) AS last_message_at,
-          COUNT(*) FILTER (WHERE direction = 'in') AS unread_count
+          COUNT(*) FILTER (WHERE direction = 'in') AS unread_count,
+          MAX(conversation_key) AS conversation_key
         FROM fb_messages
         GROUP BY CASE WHEN direction='in' THEN sender ELSE recipient END
       ) conv
