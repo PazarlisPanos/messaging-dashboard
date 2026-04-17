@@ -2,14 +2,14 @@
 
 import { format, isToday, isYesterday } from 'date-fns'
 import clsx from 'clsx'
-import type { Conversation } from '@/types'
+import type { Conversation, Platform } from '@/types'
 
 interface Props {
   conversations: Conversation[]
   selectedId: string | null
   onSelect: (id: string) => void
   loading?: boolean
-  platform: 'whatsapp' | 'viber'
+  platform: Platform
 }
 
 function formatTime(date: Date) {

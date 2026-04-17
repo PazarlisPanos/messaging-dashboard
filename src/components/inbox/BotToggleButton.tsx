@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import type { Platform } from '@/types'
 import { Bot, BotOff } from 'lucide-react'
 import clsx from 'clsx'
 
@@ -8,7 +9,7 @@ interface Props {
   contactId: string
   conversationKey: string | null | undefined
   clientSlug: string
-  platform: 'whatsapp' | 'viber'
+  platform: Platform
   initialBotPaused: boolean  // bot_paused field (not needs_human)
   hasBotWebhook: boolean
   onToggled?: () => void     // callback to refresh conversations
