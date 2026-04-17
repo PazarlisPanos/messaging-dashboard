@@ -53,17 +53,28 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
       vbUniqueContacts = parseInt(vb?.unique_contacts ?? '0')
     } catch { }
 
+    let vbIncoming = 0, vbOutgoing = 0
+    try {
+      const [vbDir] = await clientQuery<{ incoming: string; outgoing: string }>(dbUrl,
+        `SELECT COUNT(*) FILTER (WHERE direction='in') AS incoming, COUNT(*) FILTER (WHERE direction='out') AS outgoing FROM vb_messages`)
+      vbIncoming = parseInt(vbDir?.incoming ?? '0')
+      vbOutgoing = parseInt(vbDir?.outgoing ?? '0')
+    } catch { }
+
     let fbTotal = 0
     let fbUniqueContacts = 0
+    let fbIncoming = 0, fbOutgoing = 0
     try {
-      const [fb] = await clientQuery<{ total: string }>(dbUrl,
-        `SELECT COUNT(*) AS total FROM fb_messages`)
+      const [fb] = await clientQuery<{ total: string; unique_contacts: string; incoming: string; outgoing: string }>(dbUrl, `
+        SELECT COUNT(*) AS total,
+               COUNT(DISTINCT CASE WHEN direction='in' THEN sender ELSE recipient END) AS unique_contacts,
+               COUNT(*) FILTER (WHERE direction='in') AS incoming,
+               COUNT(*) FILTER (WHERE direction='out') AS outgoing
+        FROM fb_messages`)
       fbTotal = parseInt(fb?.total ?? '0')
-    } catch { }
-    try {
-      const [fbUniq] = await clientQuery<{ count: string }>(dbUrl,
-        `SELECT COUNT(DISTINCT CASE WHEN direction='in' THEN sender ELSE recipient END) AS count FROM fb_messages`)
-      fbUniqueContacts = parseInt(fbUniq?.count ?? '0')
+      fbUniqueContacts = parseInt(fb?.unique_contacts ?? '0')
+      fbIncoming = parseInt(fb?.incoming ?? '0')
+      fbOutgoing = parseInt(fb?.outgoing ?? '0')
     } catch { }
 
     const total = parseInt(wa.total)
@@ -72,8 +83,8 @@ export async function getDashboardStats(dbUrl: string): Promise<DashboardStats> 
     const waUniqueContacts = parseInt(wa.unique_contacts)
     return {
       total_messages: total + vbTotal + fbTotal,
-      incoming_messages: parseInt(wa.incoming),
-      outgoing_messages: parseInt(wa.outgoing),
+      incoming_messages: parseInt(wa.incoming) + vbIncoming + fbIncoming,
+      outgoing_messages: parseInt(wa.outgoing) + vbOutgoing + fbOutgoing,
       unique_contacts: waUniqueContacts + vbUniqueContacts + fbUniqueContacts,
       total_conversations: waUniqueContacts + vbUniqueContacts + fbUniqueContacts,
       wa_messages: total,
