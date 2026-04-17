@@ -391,15 +391,7 @@ export async function getFbConversations(dbUrl: string): Promise<Conversation[]>
         SELECT
           CASE WHEN direction='in' THEN sender ELSE recipient END AS contact_id,
           MAX(created_at) AS last_message_at,
-          COUNT(*) FILTER (WHERE direction = 'in'
-            AND created_at > COALESCE(
-              (SELECT MAX(m2.created_at) FROM fb_messages m2
-               WHERE m2.direction = 'out'
-               AND (CASE WHEN direction='in' THEN sender ELSE recipient END) =
-                   (CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END)),
-              '1970-01-01'
-            )
-          ) AS unread_count
+          COUNT(*) FILTER (WHERE direction = 'in') AS unread_count
         FROM fb_messages
         GROUP BY CASE WHEN direction='in' THEN sender ELSE recipient END
       ) conv
