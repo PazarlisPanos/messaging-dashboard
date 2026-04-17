@@ -440,7 +440,8 @@ export async function getFbMessages(dbUrl: string, contactId: string): Promise<W
         m.message_id, m.text, m.message_type, m.intent, m.lang,
         m.location_name, m.meta_json, m.resolved_by, m.confidence,
         m.reply_to_message_id, m.conversation_key, m.ai_used,
-        m.media_url, m.media_drive_id,
+        m.media_url,
+        NULL AS media_drive_id,
         CASE WHEN m.direction='in' THEN m.sender ELSE m.recipient END AS contact_id,
         NULL AS status
       FROM fb_messages m
