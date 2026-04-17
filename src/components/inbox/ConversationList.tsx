@@ -138,15 +138,7 @@ export default function ConversationList({ conversations, selectedId, onSelect, 
                       Bot OFF
                     </span>
                   )}
-                  {hasUnread && (
-                    <span style={{
-                      minWidth: 18, height: 18, borderRadius: 9, background: '#6c6fff',
-                      color: '#fff', fontSize: 9, fontWeight: 700,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px'
-                    }}>
-                      {conv.unread_count > 99 ? '99+' : conv.unread_count}
-                    </span>
-                  )}
+                  {null}
                 </div>
               </div>
 
