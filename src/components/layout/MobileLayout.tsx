@@ -33,7 +33,7 @@ export default function MobileLayout({ children, clientSlug, clientName, role }:
     exact ? pathname === href : pathname.startsWith(href)
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', background: '#0a0a0f' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', background: '#0a0a0f' }}>
       {/* Top header */}
       <header style={{ height: 56, display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 16px', background: '#111118', borderBottom: '1px solid rgba(255,255,255,0.06)', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -84,7 +84,7 @@ export default function MobileLayout({ children, clientSlug, clientName, role }:
       )}
 
       {/* Page content */}
-      <main style={{ flex: 1, overflow: 'hidden', padding: 16, paddingBottom: 80 }}>
+      <main style={{ flex: 1, padding: 16, paddingBottom: 80 }}>
         {children}
       </main>
 
