@@ -69,7 +69,7 @@ export default function MessageThread({ messages, loading }: Props) {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 py-4">
+    <div style={{ flex: 1, overflowY: 'auto', padding: '16px', minHeight: 0 }}>
       {groups.map(({ date, messages: msgs }) => (
         <div key={date}>
           <DateDivider date={new Date(date)} />

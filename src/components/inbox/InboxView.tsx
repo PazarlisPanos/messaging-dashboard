@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import ConversationList from './ConversationList'
 import MessageThread from './MessageThread'
 import ReplyBox from './ReplyBox'
@@ -32,6 +32,7 @@ export default function InboxView({
   const [search, setSearch] = useState('')
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list')
+  const readIdsRef = useRef<Set<string>>(new Set())
 
   const selectedConv = conversations.find(c => c.contact_id === selectedId)
   const hasReply = platform === 'whatsapp' ? !!waWebhook : platform === 'viber' ? !!vbWebhook : !!fbWebhook
@@ -44,7 +45,9 @@ export default function InboxView({
       const res = await fetch(`/api/conversations?client=${encodeURIComponent(clientSlug)}&platform=${platform}`)
       const data = await res.json()
       if (data.conversations) {
-        setConversations(data.conversations)
+        setConversations(data.conversations.map((c: Conversation) =>
+          readIdsRef.current.has(c.contact_id) ? { ...c, unread_count: 0 } : c
+        ))
         setLastRefresh(new Date())
       }
     } catch { }
@@ -67,6 +70,7 @@ export default function InboxView({
   }, [clientSlug, platform])
 
   function markAsRead(contactId: string) {
+    readIdsRef.current.add(contactId)
     setConversations(prev =>
       prev.map(c => c.contact_id === contactId ? { ...c, unread_count: 0 } : c)
     )
