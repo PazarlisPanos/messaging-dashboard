@@ -84,7 +84,7 @@ export default function MobileLayout({ children, clientSlug, clientName, role }:
       )}
 
       {/* Page content */}
-      <main style={{ flex: 1, padding: 16, paddingBottom: 80 }}>
+      <main style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: 16, paddingBottom: 80 }}>
         {children}
       </main>
 

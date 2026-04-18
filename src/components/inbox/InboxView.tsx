@@ -157,7 +157,7 @@ export default function InboxView({
           Updated {lastRefresh.toLocaleTimeString('el-GR', { hour: '2-digit', minute: '2-digit' })}
         </p>
       </div>
-      <div style={{ flex: 1, overflow: 'hidden' }}>
+      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         <ConversationList conversations={filtered} selectedId={selectedId} onSelect={handleSelect} platform={platform} />
       </div>
     </div>

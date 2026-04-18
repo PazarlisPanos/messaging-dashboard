@@ -68,7 +68,7 @@ export default function ConversationList({ conversations, selectedId, onSelect, 
   }
 
   return (
-    <div className="flex-1 overflow-y-auto">
+    <div className="flex-1 overflow-y-auto" style={{ minHeight: 0 }}>
       {conversations.map((conv) => {
         const isSelected = conv.contact_id === selectedId
         const needsHuman = conv.needs_human
