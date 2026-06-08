@@ -403,7 +403,7 @@ export async function getFbConversations(dbUrl: string): Promise<Conversation[]>
         WHERE CASE WHEN m2.direction='in' THEN m2.sender ELSE m2.recipient END = conv.contact_id
         ORDER BY m2.created_at DESC LIMIT 1
       ) last_msg ON true
-      LEFT JOIN fb_sessions s ON s.sender = conv.contact_id
+      LEFT JOIN fb_sessions s ON s.sender = 'fb_mc:' || conv.contact_id
       ORDER BY s.needs_human DESC NULLS LAST, conv.last_message_at DESC
       LIMIT 100
     `)
